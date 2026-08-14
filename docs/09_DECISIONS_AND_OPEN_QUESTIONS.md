@@ -304,6 +304,14 @@ Should the code repository remain private initially and become public after data
 
 At what point is repeated informal use enough, and when should LET use randomization or a formal within-person design?
 
+### LET-Q-019 — Follow-up Modality & Multi-turn Thread Pulling in the Bridge
+
+When Liquid generates a sharp perturbation, how should follow-up exploration and resolution be captured in LET?
+
+- **Case 1 (Single-Shot Punch):** The question is immediately clear and Jonathan wants to record a direct voice or text answer attached to the episode in LET.
+- **Case 2 (Thread Pulling):** The question opens a broader thread where Jonathan chats back and forth with external AI (Antigravity, ChatGPT, Claude) across 3–4 turns before the core insight crystallizes. At what point and in what format should that final crystallization be synthesized and imported into LET?
+- **Evolutionary Path:** How does this manual third-party chat workflow transition to an internal/local Liquid engine over time without corrupting artifact lineage?
+
 ## 3. Deliberately undecided
 
 The following should not be decided before evidence:
