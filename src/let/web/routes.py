@@ -12,9 +12,19 @@ from flask import (
     jsonify,
     render_template,
     request,
+    Response,
     send_file,
 )
-from let.models.entities import Artifact, Episode, Event, Job, TranscriptData
+from let.liquid.brief_generator import generate_mission_brief
+from let.liquid.response_parser import import_analysis_response
+from let.models.entities import (
+    AnalysisData,
+    Artifact,
+    Episode,
+    Event,
+    Job,
+    TranscriptData,
+)
 
 bp = Blueprint("main", __name__)
 
@@ -27,6 +37,10 @@ def _get_store():
     return current_app.extensions["let_store"]
 
 
+def _get_config():
+    return current_app.extensions["let_config"]
+
+
 def _load_transcript_data(artifact: Artifact) -> TranscriptData | None:
     """Helper to read and parse derived transcript JSON file."""
     try:
@@ -35,6 +49,19 @@ def _load_transcript_data(artifact: Artifact) -> TranscriptData | None:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return TranscriptData(**data)
+    except Exception:
+        pass
+    return None
+
+
+def _load_analysis_data(artifact: Artifact) -> AnalysisData | None:
+    """Helper to read and parse derived analysis JSON file."""
+    try:
+        path = Path(artifact.file_path)
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return AnalysisData(**data)
     except Exception:
         pass
     return None
@@ -56,6 +83,12 @@ def index():
             if latest_transcript_art
             else None
         )
+        latest_analysis_art = repo.get_latest_analysis_for_episode(ep.id)
+        analysis_data = (
+            _load_analysis_data(latest_analysis_art)
+            if latest_analysis_art
+            else None
+        )
         jobs = repo.list_jobs_for_episode(ep.id)
         latest_job = jobs[0] if jobs else None
 
@@ -65,6 +98,8 @@ def index():
                 "artifacts": artifacts,
                 "transcript_art": latest_transcript_art,
                 "transcript_data": transcript_data,
+                "analysis_art": latest_analysis_art,
+                "analysis_data": analysis_data,
                 "latest_job": latest_job,
             }
         )
@@ -78,7 +113,7 @@ def index():
 
 @bp.route("/episodes/<episode_id>")
 def episode_detail(episode_id: str):
-    """Detailed episode view with artifact lineage, transcript segments, and events."""
+    """Detailed episode view with artifact lineage, transcript segments, analysis, and events."""
     repo = _get_repo()
     episode = repo.get_episode(episode_id)
     if not episode:
@@ -96,6 +131,13 @@ def episode_detail(episode_id: str):
         else None
     )
 
+    latest_analysis_art = repo.get_latest_analysis_for_episode(episode_id)
+    analysis_data = (
+        _load_analysis_data(latest_analysis_art)
+        if latest_analysis_art
+        else None
+    )
+
     return render_template(
         "episode_detail.html",
         episode=episode,
@@ -103,6 +145,8 @@ def episode_detail(episode_id: str):
         events=events,
         transcript_art=latest_transcript_art,
         transcript_data=transcript_data,
+        analysis_art=latest_analysis_art,
+        analysis_data=analysis_data,
         latest_job=latest_job,
     )
 
@@ -131,6 +175,119 @@ def get_transcript_partial(episode_id: str):
         transcript_data=transcript_data,
         latest_job=latest_job,
     )
+
+
+@bp.route("/episodes/<episode_id>/brief")
+def get_mission_brief(episode_id: str):
+    """Generate and return structured Mission Brief Markdown text."""
+    repo = _get_repo()
+    episode = repo.get_episode(episode_id)
+    if not episode:
+        return jsonify({"error": "Episode not found"}), 404
+
+    latest_transcript_art = repo.get_latest_transcript_for_episode(episode_id)
+    transcript_data = (
+        _load_transcript_data(latest_transcript_art)
+        if latest_transcript_art
+        else None
+    )
+
+    brief_text = generate_mission_brief(
+        episode=episode,
+        transcript=transcript_data,
+    )
+
+    if request.args.get("format") == "json":
+        return jsonify(
+            {
+                "episode_id": episode.id,
+                "brief_markdown": brief_text,
+            }
+        )
+
+    return Response(brief_text, mimetype="text/markdown")
+
+
+@bp.route("/api/episodes/<episode_id>/import_analysis", methods=["POST"])
+def import_analysis(episode_id: str):
+    """Ingest external AI Mission Brief response and save derived artifact."""
+    repo = _get_repo()
+    config = _get_config()
+    file_store = _get_store()
+
+    episode = repo.get_episode(episode_id)
+    if not episode:
+        return jsonify({"error": "Episode not found"}), 404
+
+    raw_response = request.form.get("response_text", "").strip()
+    if not raw_response:
+        data = request.get_json(silent=True) or {}
+        raw_response = data.get("response_text", "").strip()
+
+    if not raw_response:
+        return jsonify({"error": "No response text provided"}), 400
+
+    provider = (
+        request.form.get("provider", "manual").strip()
+        or request.get_json(silent=True, default={}).get("provider", "manual")
+    )
+
+    # Link back to latest transcript as source artifact
+    latest_transcript = repo.get_latest_transcript_for_episode(episode_id)
+    source_artifact_id = latest_transcript.id if latest_transcript else None
+
+    # Persist derived analysis artifact
+    artifact, analysis_data = import_analysis_response(
+        raw_response=raw_response,
+        provider=provider,
+        episode_id=episode_id,
+        source_artifact_id=source_artifact_id,
+        config=config,
+        repo=repo,
+        file_store=file_store,
+    )
+
+    if request.headers.get("HX-Request"):
+        return render_template(
+            "partials/analysis_view.html",
+            episode=episode,
+            analysis_art=artifact,
+            analysis_data=analysis_data,
+        )
+
+    return (
+        jsonify(
+            {
+                "status": "success",
+                "artifact": artifact.model_dump(),
+                "analysis": analysis_data.model_dump(),
+            }
+        ),
+        201,
+    )
+
+
+@bp.route("/api/episodes/<episode_id>/update_title", methods=["POST"])
+def update_title(episode_id: str):
+    """In-place episode title rename endpoint."""
+    repo = _get_repo()
+    episode = repo.get_episode(episode_id)
+    if not episode:
+        return jsonify({"error": "Episode not found"}), 404
+
+    new_title = request.form.get("title", "").strip()
+    if not new_title:
+        data = request.get_json(silent=True) or {}
+        new_title = data.get("title", "").strip()
+
+    if new_title:
+        episode.title = new_title
+        repo.update_episode(episode)
+
+    if request.headers.get("HX-Request"):
+        return f'<a href="/episodes/{episode.id}" class="episode-title-link">{episode.title}</a>'
+
+    return jsonify({"status": "success", "episode": episode.model_dump()})
 
 
 @bp.route("/api/capture/audio", methods=["POST"])
@@ -232,6 +389,8 @@ def capture_audio():
                 "artifacts": artifacts,
                 "transcript_art": None,
                 "transcript_data": None,
+                "analysis_art": None,
+                "analysis_data": None,
                 "latest_job": job,
             },
         )

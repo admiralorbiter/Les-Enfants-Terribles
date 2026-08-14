@@ -230,14 +230,16 @@ Because subscription access is abundant and API spending is undesirable, human-m
 
 Generate a bounded **Mission Brief** containing:
 
-- episode purpose;
+- episode purpose and domain;
 - selected transcript/media references;
-- declared mode;
-- requested processor behavior;
-- provenance;
-- exact return schema.
+- declared cognitive mode (*Explore, Challenge, Understand, Improve, Surprise, Decide*);
+- requested dual output specifications:
+  1. **Polished Synthesis / Review Note:** clean, structured restructuring of spoken thoughts in authentic voice;
+  2. **Liquid Perturbations:** 1–2 high-leverage questions or challenges;
+- provenance and content hashes;
+- exact return markdown schema.
 
-Copy it to clipboard or save Markdown/JSON.
+Copy it to clipboard with one click or save Markdown/JSON.
 
 #### External run
 
@@ -245,17 +247,16 @@ Jonathan uses Antigravity, ChatGPT, Claude, Gemini, or another subscribed interf
 
 #### Import
 
-Paste or upload the response.
+Paste the response back into LET.
 
 LET records:
 
 - provider/model if known;
 - prompt packet hash;
-- response;
-- time;
-- parser version;
-- output type;
-- human notes.
+- derived analysis artifact with SHA-256 hash;
+- link to source transcript (`source_artifact_id`);
+- time and parser version;
+- rendered Polished Summary with 1-click copy and prominent Liquid Question card.
 
 Manual transport does not weaken provenance if it is recorded explicitly.
 

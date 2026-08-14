@@ -167,6 +167,23 @@ class Repository:
             data["is_raw"] = bool(data["is_raw"])
             return Artifact(**data)
 
+    def get_latest_analysis_for_episode(self, episode_id: str) -> Optional[Artifact]:
+        with self.db.transaction() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM artifacts
+                WHERE episode_id = ? AND artifact_type = 'analysis'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (episode_id,),
+            ).fetchone()
+            if not row:
+                return None
+            data = dict(row)
+            data["is_raw"] = bool(data["is_raw"])
+            return Artifact(**data)
+
     def list_all_artifacts(self) -> list[Artifact]:
         with self.db.transaction() as conn:
             rows = conn.execute("SELECT * FROM artifacts ORDER BY created_at DESC").fetchall()

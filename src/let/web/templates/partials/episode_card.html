@@ -3,11 +3,13 @@
     {% set arts = item.artifacts if item is defined else artifacts %}
     {% set t_art = item.transcript_art if item is defined else transcript_art %}
     {% set t_data = item.transcript_data if item is defined else transcript_data %}
+    {% set an_art = item.analysis_art if item is defined else analysis_art %}
+    {% set an_data = item.analysis_data if item is defined else analysis_data %}
     {% set job = item.latest_job if item is defined else latest_job %}
 
     <div class="episode-header">
         <div>
-            <a href="{{ url_for('main.episode_detail', episode_id=ep.id) }}" class="episode-title-link">
+            <a href="{{ url_for('main.episode_detail', episode_id=ep.id) }}" class="episode-title-link" id="title-display-{{ ep.id }}">
                 {{ ep.title }}
             </a>
             <div class="episode-meta">
@@ -37,5 +39,10 @@
     <!-- Transcript Section -->
     {% with episode=ep, transcript_art=t_art, transcript_data=t_data, latest_job=job %}
         {% include "partials/transcript_view.html" %}
+    {% endwith %}
+
+    <!-- Analysis & Mission Brief Section -->
+    {% with episode=ep, analysis_art=an_art, analysis_data=an_data %}
+        {% include "partials/analysis_view.html" %}
     {% endwith %}
 </article>

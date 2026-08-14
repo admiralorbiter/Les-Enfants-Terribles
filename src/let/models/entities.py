@@ -1,4 +1,4 @@
-"""Domain entity models for Episodes, Artifacts, Events, Jobs, and Transcripts."""
+"""Domain entity models for Episodes, Artifacts, Events, Jobs, Transcripts, and Analyses."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ class Event(BaseModel):
 
     id: str
     episode_id: str
-    event_type: str  # "capture_saved", "mark", "transcription_started", "transcription_completed", etc.
+    event_type: str  # "capture_saved", "mark", "transcription_started", "analysis_imported", etc.
     payload_json: str = "{}"
     created_at: str = Field(default_factory=utc_now_iso)
 
@@ -97,4 +97,14 @@ class TranscriptData(BaseModel):
     duration_sec: float = 0.0
     segments: list[TranscriptSegment] = Field(default_factory=list)
     processor_name: str = "faster-whisper"
-    processor_version: str = "base.en"
+    processor_version: str = "small.en"
+
+
+class AnalysisData(BaseModel):
+    """Structured dual output parsed from external AI Mission Brief response."""
+
+    synthesis_text: str = ""
+    perturbations: list[str] = Field(default_factory=list)
+    provider: str = "manual"
+    raw_response: str = ""
+    created_at: str = Field(default_factory=utc_now_iso)

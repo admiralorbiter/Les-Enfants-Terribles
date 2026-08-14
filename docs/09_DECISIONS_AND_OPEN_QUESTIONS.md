@@ -174,6 +174,27 @@ last_reviewed: "2026-08-13"
 
 **Rationale:** The metaphor should clarify rather than obscure.
 
+---
+
+### LET-D-018 — Slice 2 Decomposition (2A, 2B, 2C)
+
+**Decision:** Decompose Slice 2 (Liquid Core & AI Bridge) into three independent, testable micro-slices:
+- **Slice 2A:** Mission Brief Export & Polished Synthesis/Response Import (pure prompt and bridge probe);
+- **Slice 2B:** Flexible Follow-Up Dialogue (multi-modal voice and typed text note responses);
+- **Slice 2C:** Lightweight Calibration & Built-in Heuristics (1-tap feedback and offline deterministic question templates).
+
+**Rationale:** Avoids conflating prompt quality, bridge friction, and interaction modality. Allows rapid validation of external AI value before building complex conversational branching.
+
+---
+
+### LET-D-019 — Dual Output of Mission Brief (Polished Synthesis + Liquid Perturbation)
+
+**Decision:** The Mission Brief protocol requests two distinct, versioned derived artifacts:
+1. **Polished Synthesis / Review Note:** A clean, publication-ready restructuring of the spoken thought in Jonathan's authentic voice (for Letterboxd, notes, or professional docs);
+2. **Liquid Perturbation:** 1–2 high-leverage cognitive questions or challenges tailored to the declared mode.
+
+**Rationale:** Satisfies the practical need for clean written summaries from spoken rambles while preserving strict epistemic separation and providing metacognitive challenge.
+
 ## 2. Open questions
 
 ### LET-Q-001 — Data root and backup

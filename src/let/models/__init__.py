@@ -1,6 +1,7 @@
 """Data models for LET."""
 
 from .entities import (
+    AnalysisData,
     Artifact,
     DomainType,
     Episode,
@@ -22,4 +23,5 @@ __all__ = [
     "ModeType",
     "TranscriptData",
     "TranscriptSegment",
+    "AnalysisData",
 ]

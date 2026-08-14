@@ -34,27 +34,37 @@ By the end of the period, we should know:
 
 ## 3. Minimum meaningful build
 
-The first vertical slice should support:
+The implementation progresses through explicit vertical slices:
 
-1. local app launch;
-2. audio record/stop;
-3. atomic raw save;
-4. SQLite episode/artifact record;
-5. recent-episode list;
-6. audio playback;
-7. background transcription;
-8. transcript view;
-9. follow-up voice capture attached to the same episode;
-10. backup/doctor basics.
+### Slice 0 — Foundation Capture Substrate (Completed)
+- Local app launch (`python app.py` or `let run`);
+- Browser microphone record/stop;
+- Atomic raw audio persistence with SHA-256 hash calculation;
+- SQLite metadata (episodes, artifacts, events);
+- Recent episode feed and immediate in-browser audio playback;
+- Diagnostic doctor and integrity verification (`let doctor`).
 
-Strongly preferred within the field period:
+### Slice 1 — Asynchronous Worker & Speech-to-Text (Completed)
+- SQLite-backed asynchronous job queue with atomic leasing and retry limits;
+- Local `faster-whisper` transcription (`small.en` default with resilient CPU fallback);
+- Derived transcript artifacts linked to raw audio with cryptographic hashes;
+- Interactive timestamp seeking in web UI (clicking `[00:03]` seeks audio);
+- Replay and CLI transcription triggers.
 
-11. mode selection;
-12. manual Liquid question;
-13. Mission Brief export;
-14. external-response import;
-15. simple feedback;
-16. replay of one processor.
+### Slice 2A — Mission Brief Bridge & Polished Synthesis (Active)
+- 1-click **Mission Brief** Markdown export tailored by domain and declared mode;
+- Dual output protocol: (1) **Polished Synthesis / Review Note** and (2) **Liquid Perturbations**;
+- External model response import back into LET;
+- Derived analysis persistence with SHA-256 lineage tracking;
+- 1-click copy for clean synthesis and prominent Liquid question display.
+
+### Slice 2B — Flexible Follow-Up Dialogue (Planned)
+- Multi-modal response capture (voice recording and typed text notes attached directly to Liquid questions);
+- Multi-turn conversation trail (*Capture → Question → Answer → Follow-up*).
+
+### Slice 2C — Lightweight Calibration & Built-in Heuristics (Planned)
+- 1-tap feedback reactions (`Useful`, `Surprising`, `Already Knew`, `Intrusive`);
+- Deterministic/offline question primitives.
 
 Not required:
 

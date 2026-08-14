@@ -1,0 +1,91 @@
+<div id="analysis-container-{{ episode.id }}" class="analysis-wrapper">
+    {% if analysis_data %}
+        <!-- Polished Synthesis Box -->
+        <div class="synthesis-card">
+            <div class="synthesis-header">
+                <div class="synthesis-title">
+                    <span class="sparkle-icon">✦</span> Polished Synthesis
+                    <span class="provider-tag">{{ analysis_data.provider }}</span>
+                </div>
+                <button type="button" class="btn-micro btn-copy" onclick="copySummaryText('{{ episode.id }}')" id="copy-summary-btn-{{ episode.id }}">
+                    📋 Copy Summary
+                </button>
+            </div>
+            <div class="synthesis-content" id="synthesis-text-{{ episode.id }}">
+                {{ analysis_data.synthesis_text }}
+            </div>
+        </div>
+
+        <!-- Liquid Perturbation Card -->
+        {% if analysis_data.perturbations %}
+        <div class="liquid-card">
+            <div class="liquid-header">
+                <span class="liquid-title">Liquid Cognitive Perturbations</span>
+                <span class="tag">{{ episode.mode }}</span>
+            </div>
+            <div class="liquid-questions">
+                {% for q in analysis_data.perturbations %}
+                <div class="liquid-question-item">
+                    <span class="question-bullet">?</span>
+                    <span class="question-text">{{ q }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if analysis_art %}
+        <div class="artifact-footer" style="margin-top: 0.5rem;">
+            <span><strong style="color: var(--accent-emerald);">DERIVED ANALYSIS</strong> SHA-256: <code>{{ analysis_art.file_hash[:16] }}...</code></span>
+            <button type="button" class="btn-micro" onclick="openImportModal('{{ episode.id }}')">
+                ↻ Re-import Response
+            </button>
+        </div>
+        {% endif %}
+
+    {% else %}
+        <!-- Actions when no analysis yet -->
+        <div class="bridge-actions-bar">
+            <button type="button" class="btn-bridge btn-brief" onclick="copyMissionBrief('{{ episode.id }}')" id="copy-brief-btn-{{ episode.id }}" title="Copy structured prompt for Antigravity / ChatGPT / Claude">
+                📋 Copy Mission Brief
+            </button>
+            <button type="button" class="btn-bridge btn-import" onclick="openImportModal('{{ episode.id }}')">
+                📥 Import AI Response
+            </button>
+        </div>
+    {% endif %}
+
+    <!-- Hidden / Inline Import Modal Dialog -->
+    <dialog id="import-modal-{{ episode.id }}" class="import-dialog">
+        <form method="dialog" class="import-dialog-form" onsubmit="submitAnalysisImport(event, '{{ episode.id }}')">
+            <div class="dialog-header">
+                <h3>Import AI Response</h3>
+                <button type="button" class="btn-close" onclick="closeImportModal('{{ episode.id }}')">✕</button>
+            </div>
+            <p class="dialog-help">
+                Paste the response from Antigravity, ChatGPT, Claude, or Gemini. LET will extract the Polished Synthesis and Liquid Perturbations.
+            </p>
+            
+            <div class="input-group" style="margin-bottom: 0.75rem;">
+                <label for="provider-select-{{ episode.id }}">AI Tool / Model</label>
+                <select id="provider-select-{{ episode.id }}" class="form-select">
+                    <option value="Antigravity" selected>Antigravity</option>
+                    <option value="ChatGPT Plus">ChatGPT Plus</option>
+                    <option value="Claude 3.7">Claude 3.7</option>
+                    <option value="Gemini Advanced">Gemini Advanced</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="input-group" style="margin-bottom: 1rem;">
+                <label for="response-text-{{ episode.id }}">AI Response Output</label>
+                <textarea id="response-text-{{ episode.id }}" class="form-input form-textarea" rows="8" placeholder="Paste the full AI response here..." required></textarea>
+            </div>
+
+            <div class="dialog-actions">
+                <button type="button" class="btn-secondary" onclick="closeImportModal('{{ episode.id }}')">Cancel</button>
+                <button type="submit" class="btn-primary" id="import-submit-btn-{{ episode.id }}">Save Derived Analysis</button>
+            </div>
+        </form>
+    </dialog>
+</div>

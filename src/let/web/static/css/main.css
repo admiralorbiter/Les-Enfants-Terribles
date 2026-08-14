@@ -561,3 +561,265 @@ audio {
     border-color: var(--border-focus);
 }
 
+.btn-micro.copied {
+    background: var(--accent-emerald);
+    color: #ffffff;
+    border-color: var(--accent-emerald);
+}
+
+/* Analysis Wrapper & Synthesis Card */
+.analysis-wrapper {
+    margin-top: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.synthesis-card {
+    background: var(--bg-surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 1.1rem 1.25rem;
+}
+
+.synthesis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.synthesis-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.sparkle-icon {
+    color: var(--accent-amber);
+}
+
+.provider-tag {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--bg-surface-active);
+    color: var(--text-secondary);
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-sm);
+}
+
+.synthesis-content {
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+}
+
+/* Liquid Perturbation Card */
+.liquid-card {
+    background: #141f33;
+    border: 1px solid #294066;
+    border-radius: var(--radius-md);
+    padding: 1.1rem 1.25rem;
+}
+
+.liquid-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.liquid-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #93c5fd;
+    text-transform: uppercase;
+}
+
+.liquid-questions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.liquid-question-item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid #1e293b;
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 0.85rem;
+}
+
+.question-bullet {
+    background: #2563eb;
+    color: #ffffff;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.75rem;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.question-text {
+    font-size: 0.92rem;
+    color: #e2e8f0;
+    line-height: 1.5;
+}
+
+/* Bridge Actions Bar */
+.bridge-actions-bar {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.btn-bridge {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.4rem 0.85rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-brief {
+    background: var(--bg-surface-raised);
+    color: var(--text-primary);
+}
+
+.btn-brief:hover {
+    background: var(--bg-surface-active);
+    border-color: var(--border-focus);
+}
+
+.btn-brief.copied {
+    background: var(--accent-emerald);
+    color: #ffffff;
+    border-color: var(--accent-emerald);
+}
+
+.btn-import {
+    background: transparent;
+    color: var(--accent-blue);
+    border-color: #2563eb;
+}
+
+.btn-import:hover {
+    background: rgba(37, 99, 235, 0.15);
+}
+
+/* Dialog / Modal */
+.import-dialog {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+    max-width: 580px;
+    width: 90vw;
+    margin: auto;
+    padding: 1.5rem;
+}
+
+.import-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(2px);
+}
+
+.import-dialog-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.btn-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+.btn-close:hover {
+    color: var(--text-primary);
+}
+
+.dialog-help {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+.form-textarea {
+    font-family: var(--font-sans);
+    resize: vertical;
+    width: 100%;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.btn-primary {
+    background: var(--accent-blue);
+    color: #ffffff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+}
+
+.btn-secondary {
+    background: var(--bg-surface-raised);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-subtle);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    color: var(--text-primary);
+    background: var(--bg-surface-active);
+}
+
+

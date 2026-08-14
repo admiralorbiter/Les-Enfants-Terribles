@@ -1,4 +1,4 @@
-// Les Enfants Terribles — In-Browser Audio Capture Controller
+// Les Enfants Terribles — In-Browser Audio Capture & Bridge Controller
 
 let mediaRecorder = null;
 let audioChunks = [];
@@ -155,5 +155,125 @@ async function uploadRecording(blob, mimeType, episodeId = null) {
         console.error('Save error:', err);
         statusText.textContent = `Save failed: ${err.message}`;
         alert(`Failed to persist raw capture: ${err.message}`);
+    }
+}
+
+// ---------------- Mission Brief & Analysis Bridge Helpers ----------------
+
+async function copyMissionBrief(episodeId) {
+    const btn = document.getElementById(`copy-brief-btn-${episodeId}`);
+    try {
+        const res = await fetch(`/episodes/${episodeId}/brief`);
+        if (!res.ok) throw new Error('Could not fetch Mission Brief');
+        const briefMarkdown = await res.text();
+
+        await navigator.clipboard.writeText(briefMarkdown);
+        if (btn) {
+            const origText = btn.innerHTML;
+            btn.innerHTML = '✓ Brief Copied to Clipboard!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = origText;
+                btn.classList.remove('copied');
+            }, 3000);
+        }
+    } catch (err) {
+        console.error('Clipboard copy error:', err);
+        alert('Failed to copy brief to clipboard: ' + err.message);
+    }
+}
+
+async function copySummaryText(episodeId) {
+    const btn = document.getElementById(`copy-summary-btn-${episodeId}`);
+    const contentElem = document.getElementById(`synthesis-text-${episodeId}`);
+    if (!contentElem) return;
+
+    try {
+        await navigator.clipboard.writeText(contentElem.innerText.trim());
+        if (btn) {
+            const origText = btn.innerHTML;
+            btn.innerHTML = '✓ Summary Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = origText;
+                btn.classList.remove('copied');
+            }, 2500);
+        }
+    } catch (err) {
+        alert('Failed to copy summary: ' + err.message);
+    }
+}
+
+function openImportModal(episodeId) {
+    const modal = document.getElementById(`import-modal-${episodeId}`);
+    if (modal) {
+        if (typeof modal.showModal === 'function') {
+            modal.showModal();
+        } else {
+            modal.setAttribute('open', 'true');
+        }
+    }
+}
+
+function closeImportModal(episodeId) {
+    const modal = document.getElementById(`import-modal-${episodeId}`);
+    if (modal) {
+        if (typeof modal.close === 'function') {
+            modal.close();
+        } else {
+            modal.removeAttribute('open');
+        }
+    }
+}
+
+async function submitAnalysisImport(event, episodeId) {
+    event.preventDefault();
+    const providerSelect = document.getElementById(`provider-select-${episodeId}`);
+    const responseText = document.getElementById(`response-text-${episodeId}`);
+    const submitBtn = document.getElementById(`import-submit-btn-${episodeId}`);
+
+    if (!responseText || !responseText.value.trim()) {
+        alert('Please paste the AI response text');
+        return;
+    }
+
+    if (submitBtn) {
+        submitBtn.textContent = 'Importing & Verifying...';
+        submitBtn.disabled = true;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('response_text', responseText.value.trim());
+        formData.append('provider', providerSelect ? providerSelect.value : 'manual');
+
+        const res = await fetch(`/api/episodes/${episodeId}/import_analysis`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'HX-Request': 'true'
+            }
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Import failed' }));
+            throw new Error(err.error || 'Server rejected import');
+        }
+
+        const html = await res.text();
+        const container = document.getElementById(`analysis-container-${episodeId}`);
+        if (container) {
+            container.outerHTML = html;
+        }
+
+        closeImportModal(episodeId);
+    } catch (err) {
+        console.error('Import error:', err);
+        alert('Failed to import analysis: ' + err.message);
+    } finally {
+        if (submitBtn) {
+            submitBtn.textContent = 'Save Derived Analysis';
+            submitBtn.disabled = false;
+        }
     }
 }

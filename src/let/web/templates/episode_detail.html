@@ -8,18 +8,23 @@
 </a>
 
 <section class="detail-header">
-    <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">{{ episode.title }}</h1>
-    <div class="episode-meta">
-        <span class="tag domain-{{ episode.domain }}">{{ episode.domain }}</span>
-        <span class="tag">{{ episode.mode }}</span>
-        <span class="episode-timestamp">Created: {{ episode.created_at[:19].replace('T', ' ') }} UTC</span>
-        <span class="episode-timestamp">ID: <code>{{ episode.id }}</code></span>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+        <div>
+            <h1 id="episode-title-heading" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: inline-block;">{{ episode.title }}</h1>
+            <button type="button" class="btn-micro" onclick="editEpisodeTitle('{{ episode.id }}')" title="Rename episode">✎ Rename</button>
+            <div class="episode-meta">
+                <span class="tag domain-{{ episode.domain }}">{{ episode.domain }}</span>
+                <span class="tag">{{ episode.mode }}</span>
+                <span class="episode-timestamp">Created: {{ episode.created_at[:19].replace('T', ' ') }} UTC</span>
+                <span class="episode-timestamp">ID: <code>{{ episode.id }}</code></span>
+            </div>
+        </div>
     </div>
 </section>
 
-<!-- Active Audio Player & Interactive Transcript Section -->
+<!-- Active Audio Player, Transcript & Mission Brief / Analysis -->
 <section style="margin-bottom: 2rem;">
-    <h2 class="section-title" style="margin-bottom: 1rem;">Primary Audio &amp; Interactive Transcript</h2>
+    <h2 class="section-title" style="margin-bottom: 1rem;">Primary Audio &amp; Reflection Core</h2>
     
     {% for art in artifacts %}
         {% if art.artifact_type == 'audio' %}
@@ -33,8 +38,14 @@
         {% endif %}
     {% endfor %}
 
+    <!-- Transcript Section -->
     {% with episode=episode, transcript_art=transcript_art, transcript_data=transcript_data, latest_job=latest_job %}
         {% include "partials/transcript_view.html" %}
+    {% endwith %}
+
+    <!-- Mission Brief & Polished Synthesis / Liquid Questions -->
+    {% with episode=episode, analysis_art=analysis_art, analysis_data=analysis_data %}
+        {% include "partials/analysis_view.html" %}
     {% endwith %}
 </section>
 
@@ -112,6 +123,27 @@ function seekAudio(seconds) {
     if (player) {
         player.currentTime = seconds;
         player.play();
+    }
+}
+
+async function editEpisodeTitle(episodeId) {
+    const heading = document.getElementById('episode-title-heading');
+    const currentTitle = heading ? heading.textContent.trim() : '';
+    const newTitle = prompt("Rename Episode:", currentTitle);
+    if (!newTitle || newTitle === currentTitle) return;
+
+    try {
+        const res = await fetch(`/api/episodes/${episodeId}/update_title`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: newTitle })
+        });
+        if (res.ok) {
+            if (heading) heading.textContent = newTitle;
+            document.title = newTitle + " — Les Enfants Terribles";
+        }
+    } catch (e) {
+        alert("Failed to update title: " + e.message);
     }
 }
 
