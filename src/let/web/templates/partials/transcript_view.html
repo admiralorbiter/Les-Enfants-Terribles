@@ -1,0 +1,73 @@
+<div id="transcript-container-{{ episode.id }}" class="transcript-box"
+     {% if latest_job and latest_job.status in ['queued', 'running'] and not transcript_data %}
+     hx-get="{{ url_for('main.get_transcript_partial', episode_id=episode.id) }}"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML"
+     {% endif %}>
+    
+    <div class="transcript-header">
+        <span class="transcript-title">Transcript</span>
+        {% if latest_job and latest_job.status in ['queued', 'running'] and not transcript_data %}
+            <span class="status-pill status-running">● Transcribing...</span>
+        {% elif transcript_data %}
+            <span class="status-pill status-ready">✓ Ready ({{ transcript_data.processor_version }})</span>
+        {% elif latest_job and latest_job.status == 'failed' %}
+            <span class="status-pill status-failed">✗ Failed</span>
+        {% endif %}
+    </div>
+
+    {% if transcript_data %}
+        <div class="transcript-body">
+            <p class="transcript-full-text">{{ transcript_data.text }}</p>
+            
+            {% if transcript_data.segments %}
+            <div class="transcript-segments">
+                {% for seg in transcript_data.segments %}
+                <div class="transcript-segment" onclick="seekAudio({{ seg.start_sec }})">
+                    <span class="segment-time">[{{ '%02d:%02d' % ((seg.start_sec // 60)|int, (seg.start_sec % 60)|int) }}]</span>
+                    <span class="segment-text">{{ seg.text }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        {% if transcript_art %}
+        <div class="artifact-footer" style="margin-top: 0.5rem;">
+            <span><strong style="color: var(--accent-blue);">DERIVED</strong> SHA-256: <code>{{ transcript_art.file_hash[:16] }}...</code></span>
+            <button type="button" class="btn-micro" 
+                    hx-post="{{ url_for('main.retranscribe_episode', episode_id=episode.id) }}" 
+                    hx-target="#transcript-container-{{ episode.id }}" 
+                    hx-swap="outerHTML"
+                    title="Re-run transcription">
+                ↻ Re-transcribe
+            </button>
+        </div>
+        {% endif %}
+
+    {% elif latest_job and latest_job.status in ['queued', 'running'] %}
+        <div class="transcript-loading">
+            <div class="loading-spinner"></div>
+            <span>Transcribing audio locally with faster-whisper...</span>
+        </div>
+    {% elif latest_job and latest_job.status == 'failed' %}
+        <div class="transcript-error">
+            <p>Transcription failed: {{ latest_job.error_message or 'Unknown error' }}</p>
+            <button type="button" class="btn-micro" 
+                    hx-post="{{ url_for('main.retranscribe_episode', episode_id=episode.id) }}" 
+                    hx-target="#transcript-container-{{ episode.id }}" 
+                    hx-swap="outerHTML">
+                Retry Transcription
+            </button>
+        </div>
+    {% else %}
+        <div class="transcript-empty">
+            <button type="button" class="btn-micro" 
+                    hx-post="{{ url_for('main.retranscribe_episode', episode_id=episode.id) }}" 
+                    hx-target="#transcript-container-{{ episode.id }}" 
+                    hx-swap="outerHTML">
+                + Generate Transcript
+            </button>
+        </div>
+    {% endif %}
+</div>

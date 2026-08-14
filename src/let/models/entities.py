@@ -1,4 +1,4 @@
-"""Domain entity models for Episodes, Artifacts, and Events."""
+"""Domain entity models for Episodes, Artifacts, Events, Jobs, and Transcripts."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ ModeType = Literal[
     "surprise",
     "decide",
 ]
+JobStatus = Literal["queued", "running", "succeeded", "failed"]
 
 
 class Episode(BaseModel):
@@ -58,6 +59,42 @@ class Event(BaseModel):
 
     id: str
     episode_id: str
-    event_type: str  # "capture_started", "capture_stopped", "mark", "note_added", "mode_changed"
+    event_type: str  # "capture_saved", "mark", "transcription_started", "transcription_completed", etc.
     payload_json: str = "{}"
     created_at: str = Field(default_factory=utc_now_iso)
+
+
+class Job(BaseModel):
+    """An asynchronous task managed by the SQLite job queue."""
+
+    id: str
+    job_type: str  # e.g., "transcribe_audio"
+    episode_id: Optional[str] = None
+    artifact_id: Optional[str] = None
+    payload_json: str = "{}"
+    status: JobStatus = "queued"
+    attempts: int = 0
+    max_attempts: int = 3
+    error_message: Optional[str] = None
+    worker_id: Optional[str] = None
+    created_at: str = Field(default_factory=utc_now_iso)
+    updated_at: str = Field(default_factory=utc_now_iso)
+
+
+class TranscriptSegment(BaseModel):
+    """A timestamped segment within a transcript."""
+
+    start_sec: float
+    end_sec: float
+    text: str
+
+
+class TranscriptData(BaseModel):
+    """Complete structured transcription result."""
+
+    text: str
+    language: str = "en"
+    duration_sec: float = 0.0
+    segments: list[TranscriptSegment] = Field(default_factory=list)
+    processor_name: str = "faster-whisper"
+    processor_version: str = "base.en"

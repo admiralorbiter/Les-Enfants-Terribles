@@ -17,14 +17,36 @@
     </div>
 </section>
 
+<!-- Active Audio Player & Interactive Transcript Section -->
 <section style="margin-bottom: 2rem;">
-    <h2 class="section-title" style="margin-bottom: 1rem;">Durable Artifacts ({{ artifacts|length }})</h2>
+    <h2 class="section-title" style="margin-bottom: 1rem;">Primary Audio &amp; Interactive Transcript</h2>
+    
+    {% for art in artifacts %}
+        {% if art.artifact_type == 'audio' %}
+        <div class="audio-player-container" style="margin-bottom: 1rem;">
+            <audio id="audio-player-main" controls preload="auto" src="{{ url_for('main.stream_media', artifact_id=art.id) }}"></audio>
+            <div class="artifact-footer">
+                <span><strong class="raw-badge">RAW AUDIO</strong> SHA-256: <code>{{ art.file_hash[:16] }}...</code></span>
+                <span>{{ (art.size_bytes / 1024)|round(1) }} KB</span>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+
+    {% with episode=episode, transcript_art=transcript_art, transcript_data=transcript_data, latest_job=latest_job %}
+        {% include "partials/transcript_view.html" %}
+    {% endwith %}
+</section>
+
+<!-- Durable Artifacts Lineage View -->
+<section style="margin-bottom: 2rem;">
+    <h2 class="section-title" style="margin-bottom: 1rem;">All Artifacts ({{ artifacts|length }})</h2>
     <div class="artifacts-grid">
         {% for art in artifacts %}
         <div class="episode-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <strong>
-                    {% if art.is_raw %}<span class="raw-badge">RAW</span>{% else %}<span>DERIVED</span>{% endif %}
+                    {% if art.is_raw %}<span class="raw-badge">RAW</span>{% else %}<span style="color: var(--accent-blue);">DERIVED</span>{% endif %}
                     {{ art.artifact_type|upper }}
                 </strong>
                 <span class="episode-timestamp">{{ art.created_at[:19].replace('T', ' ') }} UTC</span>
@@ -32,7 +54,7 @@
 
             {% if art.artifact_type == 'audio' %}
             <div class="audio-player-container">
-                <audio controls preload="auto" src="{{ url_for('main.stream_media', artifact_id=art.id) }}"></audio>
+                <audio controls preload="none" src="{{ url_for('main.stream_media', artifact_id=art.id) }}"></audio>
             </div>
             {% endif %}
 
@@ -85,6 +107,14 @@
 
 {% block scripts %}
 <script>
+function seekAudio(seconds) {
+    const player = document.getElementById('audio-player-main') || document.querySelector('audio');
+    if (player) {
+        player.currentTime = seconds;
+        player.play();
+    }
+}
+
 async function addMark() {
     const note = prompt("Enter bookmark note for MARK event:", "Important moment");
     if (!note) return;

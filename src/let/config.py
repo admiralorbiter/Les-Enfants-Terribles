@@ -19,6 +19,10 @@ class Config:
     host: str = "127.0.0.1"
     port: int = 5000
     debug: bool = False
+    whisper_model_size: str = "small.en"
+    whisper_device: str = "auto"
+    whisper_compute_type: str = "default"
+    enable_background_worker: bool = True
 
     @property
     def db_path(self) -> Path:
@@ -81,7 +85,20 @@ def get_config(data_dir_override: str | Path | None = None) -> Config:
     host = os.getenv("LET_HOST", "127.0.0.1")
     port = int(os.getenv("LET_PORT", "5000"))
     debug = os.getenv("LET_DEBUG", "false").lower() in ("true", "1", "yes")
+    whisper_model_size = os.getenv("LET_WHISPER_MODEL", "small.en")
+    whisper_device = os.getenv("LET_WHISPER_DEVICE", "auto")
+    whisper_compute_type = os.getenv("LET_WHISPER_COMPUTE_TYPE", "default")
+    enable_worker = os.getenv("LET_ENABLE_WORKER", "true").lower() in ("true", "1", "yes")
 
-    config = Config(data_dir=base_dir, host=host, port=port, debug=debug)
+    config = Config(
+        data_dir=base_dir,
+        host=host,
+        port=port,
+        debug=debug,
+        whisper_model_size=whisper_model_size,
+        whisper_device=whisper_device,
+        whisper_compute_type=whisper_compute_type,
+        enable_background_worker=enable_worker,
+    )
     config.ensure_directories()
     return config

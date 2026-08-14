@@ -58,11 +58,9 @@
     </div>
 
     <div class="episodes-list" id="episodes-feed">
-        {% if episodes_with_artifacts %}
-            {% for ep, arts in episodes_with_artifacts %}
-                {% with episode=ep, artifacts=arts %}
-                    {% include "partials/episode_card.html" %}
-                {% endwith %}
+        {% if episodes_with_data %}
+            {% for item in episodes_with_data %}
+                {% include "partials/episode_card.html" %}
             {% endfor %}
         {% else %}
             <div class="empty-state" id="empty-feed-state">

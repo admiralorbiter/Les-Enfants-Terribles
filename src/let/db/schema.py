@@ -40,8 +40,27 @@ CREATE TABLE IF NOT EXISTS events (
     FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    job_type TEXT NOT NULL,
+    episode_id TEXT,
+    artifact_id TEXT,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'queued',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    error_message TEXT,
+    worker_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE,
+    FOREIGN KEY (artifact_id) REFERENCES artifacts(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_episodes_created_at ON episodes(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_artifacts_episode_id ON artifacts(episode_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_file_hash ON artifacts(file_hash);
 CREATE INDEX IF NOT EXISTS idx_events_episode_id ON events(episode_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_jobs_episode_id ON jobs(episode_id);
 """

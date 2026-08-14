@@ -1,21 +1,27 @@
-<article class="episode-card" id="episode-{{ episode.id }}">
+<article class="episode-card" id="episode-{{ item.episode.id if item is defined else episode.id }}">
+    {% set ep = item.episode if item is defined else episode %}
+    {% set arts = item.artifacts if item is defined else artifacts %}
+    {% set t_art = item.transcript_art if item is defined else transcript_art %}
+    {% set t_data = item.transcript_data if item is defined else transcript_data %}
+    {% set job = item.latest_job if item is defined else latest_job %}
+
     <div class="episode-header">
         <div>
-            <a href="{{ url_for('main.episode_detail', episode_id=episode.id) }}" class="episode-title-link">
-                {{ episode.title }}
+            <a href="{{ url_for('main.episode_detail', episode_id=ep.id) }}" class="episode-title-link">
+                {{ ep.title }}
             </a>
             <div class="episode-meta">
-                <span class="tag domain-{{ episode.domain }}">{{ episode.domain }}</span>
-                <span class="tag">{{ episode.mode }}</span>
-                <span class="episode-timestamp">{{ episode.created_at[:16].replace('T', ' ') }} UTC</span>
+                <span class="tag domain-{{ ep.domain }}">{{ ep.domain }}</span>
+                <span class="tag">{{ ep.mode }}</span>
+                <span class="episode-timestamp">{{ ep.created_at[:16].replace('T', ' ') }} UTC</span>
             </div>
         </div>
     </div>
 
-    {% for art in artifacts %}
+    {% for art in arts %}
         {% if art.artifact_type == 'audio' %}
         <div class="audio-player-container">
-            <audio controls preload="none" src="{{ url_for('main.stream_media', artifact_id=art.id) }}">
+            <audio id="audio-player-{{ ep.id }}" controls preload="none" src="{{ url_for('main.stream_media', artifact_id=art.id) }}">
                 Your browser does not support audio playback.
             </audio>
             <div class="artifact-footer">
@@ -27,4 +33,9 @@
         </div>
         {% endif %}
     {% endfor %}
+
+    <!-- Transcript Section -->
+    {% with episode=ep, transcript_art=t_art, transcript_data=t_data, latest_job=job %}
+        {% include "partials/transcript_view.html" %}
+    {% endwith %}
 </article>

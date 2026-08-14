@@ -61,7 +61,7 @@ def test_capture_audio_htmx(
     assert res.status_code == 200
     assert b"MGS2 Ending Reflection" in res.data
     assert b"RAW" in res.data
-    assert b"audio controls" in res.data
+    assert b"controls" in res.data
 
 
 def test_stream_media_and_detail(
@@ -114,7 +114,7 @@ def test_attach_followup_audio(
     # 3. Detail view should now have 2 artifacts
     detail_res = client.get(f"/episodes/{ep_id}")
     assert detail_res.status_code == 200
-    assert b"Durable Artifacts (2)" in detail_res.data
+    assert b"All Artifacts (2)" in detail_res.data
 
 
 def test_add_mark_event(
