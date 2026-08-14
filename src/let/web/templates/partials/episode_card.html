@@ -1,0 +1,30 @@
+<article class="episode-card" id="episode-{{ episode.id }}">
+    <div class="episode-header">
+        <div>
+            <a href="{{ url_for('main.episode_detail', episode_id=episode.id) }}" class="episode-title-link">
+                {{ episode.title }}
+            </a>
+            <div class="episode-meta">
+                <span class="tag domain-{{ episode.domain }}">{{ episode.domain }}</span>
+                <span class="tag">{{ episode.mode }}</span>
+                <span class="episode-timestamp">{{ episode.created_at[:16].replace('T', ' ') }} UTC</span>
+            </div>
+        </div>
+    </div>
+
+    {% for art in artifacts %}
+        {% if art.artifact_type == 'audio' %}
+        <div class="audio-player-container">
+            <audio controls preload="none" src="{{ url_for('main.stream_media', artifact_id=art.id) }}">
+                Your browser does not support audio playback.
+            </audio>
+            <div class="artifact-footer">
+                <span>
+                    <strong class="raw-badge">RAW</strong> SHA-256: <code>{{ art.file_hash[:16] }}...</code>
+                </span>
+                <span>{{ (art.size_bytes / 1024)|round(1) }} KB</span>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+</article>

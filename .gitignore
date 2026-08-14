@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environments
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# LET Local Data Root & Media (MUST NEVER BE COMMITTED)
+.let_data/
+LET_DATA/
+instance/
+*.sqlite
+*.sqlite3
+*.db
+
+# Testing & Tools
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

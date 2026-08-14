@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Les Enfants Terribles{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="site-header">
+            <a href="{{ url_for('main.index') }}" class="site-title">
+                Les Enfants Terribles
+                <span>Substrate v0.1</span>
+            </a>
+            <div class="header-status">
+                ● Local SQLite &amp; Disk Store
+            </div>
+        </header>
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

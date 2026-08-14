@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="recorder-card">
+    <div class="recorder-controls">
+        <button type="button" class="record-btn" id="record-btn" onclick="toggleRecording()" title="Click to Record / Stop">
+            <svg class="mic-icon" viewBox="0 0 24 24">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+        </button>
+        <div class="timer-display" id="timer-display">00:00</div>
+        <div class="recorder-status-text" id="recorder-status">Click microphone to begin intentional capture</div>
+    </div>
+
+    <div class="recorder-options">
+        <div class="input-group">
+            <label for="episode-title">Optional Title</label>
+            <input type="text" id="episode-title" class="form-input" placeholder="Spontaneous thought, film notes...">
+        </div>
+        <div class="input-group">
+            <label for="episode-domain">Domain</label>
+            <select id="episode-domain" class="form-select">
+                <option value="general" selected>General / Thought</option>
+                <option value="movie">Movie</option>
+                <option value="piano">Piano</option>
+                <option value="cod">Call of Duty</option>
+                <option value="research">Research</option>
+                <option value="programming">Programming</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label for="episode-mode">Initial Mode</label>
+            <select id="episode-mode" class="form-select">
+                <option value="capture" selected>Just Capture</option>
+                <option value="explore">Explore</option>
+                <option value="challenge">Challenge</option>
+                <option value="understand">Understand</option>
+                <option value="improve">Improve</option>
+                <option value="surprise">Surprise Me</option>
+                <option value="decide">Let Liquid Decide</option>
+            </select>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="section-header">
+        <h2 class="section-title">Recent Episodes</h2>
+        <div class="domain-tabs">
+            <a href="{{ url_for('main.index') }}" class="domain-tab {% if not current_domain %}active{% endif %}">All</a>
+            <a href="{{ url_for('main.index', domain='movie') }}" class="domain-tab {% if current_domain == 'movie' %}active{% endif %}">Movies</a>
+            <a href="{{ url_for('main.index', domain='piano') }}" class="domain-tab {% if current_domain == 'piano' %}active{% endif %}">Piano</a>
+            <a href="{{ url_for('main.index', domain='cod') }}" class="domain-tab {% if current_domain == 'cod' %}active{% endif %}">COD</a>
+            <a href="{{ url_for('main.index', domain='research') }}" class="domain-tab {% if current_domain == 'research' %}active{% endif %}">Research</a>
+            <a href="{{ url_for('main.index', domain='programming') }}" class="domain-tab {% if current_domain == 'programming' %}active{% endif %}">Programming</a>
+        </div>
+    </div>
+
+    <div class="episodes-list" id="episodes-feed">
+        {% if episodes_with_artifacts %}
+            {% for ep, arts in episodes_with_artifacts %}
+                {% with episode=ep, artifacts=arts %}
+                    {% include "partials/episode_card.html" %}
+                {% endwith %}
+            {% endfor %}
+        {% else %}
+            <div class="empty-state" id="empty-feed-state">
+                <strong>No episodes captured yet.</strong>
+                <p>Press the microphone button above to record your first intentional reflection.</p>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
