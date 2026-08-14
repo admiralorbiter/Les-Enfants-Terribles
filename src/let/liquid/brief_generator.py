@@ -1,9 +1,9 @@
-"""Mission Brief Markdown prompt generator for external AI bridge."""
+"""Mission Brief Markdown prompt generator for external AI bridge with epistemic boundaries."""
 
 from __future__ import annotations
 
 from typing import Optional
-from let.models.entities import Episode, TranscriptData
+from let.models.entities import Artifact, Episode, TranscriptData
 
 DOMAIN_PROMPTS = {
     "movie": "Analyze this film reflection. Pay attention to cinematography, pacing, narrative themes, emotional resonance, and directorial choices.",
@@ -21,7 +21,7 @@ MODE_PROMPTS = {
     "understand": "Isolate the primary causal mechanism. Why did this work or fail?",
     "improve": "Highlight discrepancies between intent and execution; focus on actionable calibration.",
     "surprise": "Offer an unexpected, counter-intuitive angle or unconventional lens.",
-    "decide": "Distill the critical trade-off and outline the discriminating experiment.",
+    "decide": "Help Me Decide: Distill the critical trade-off and outline the discriminating experiment.",
 }
 
 
@@ -29,8 +29,10 @@ def generate_mission_brief(
     episode: Episode,
     transcript: Optional[TranscriptData] = None,
     transcript_text: Optional[str] = None,
+    transcript_artifact: Optional[Artifact] = None,
+    audio_artifact: Optional[Artifact] = None,
 ) -> str:
-    """Construct a bounded Mission Brief Markdown packet."""
+    """Construct a bounded Mission Brief Markdown packet with provenance and epistemic boundaries."""
     text = ""
     if transcript and transcript.text:
         text = transcript.text.strip()
@@ -42,15 +44,33 @@ def generate_mission_brief(
     domain_guidance = DOMAIN_PROMPTS.get(episode.domain, DOMAIN_PROMPTS["general"])
     mode_guidance = MODE_PROMPTS.get(episode.mode, MODE_PROMPTS["capture"])
 
+    audio_id = audio_artifact.id if audio_artifact else "unknown"
+    audio_hash = f"`{audio_artifact.file_hash[:16]}...`" if audio_artifact else "unknown"
+    transcript_id = transcript_artifact.id if transcript_artifact else "unknown"
+    transcript_hash = f"`{transcript_artifact.file_hash[:16]}...`" if transcript_artifact else "unknown"
+    processor_info = (
+        f"{transcript_artifact.processor_name} ({transcript_artifact.processor_version})"
+        if transcript_artifact and transcript_artifact.processor_name
+        else (f"{transcript.processor_name} ({transcript.processor_version})" if transcript else "local Whisper")
+    )
+
     brief = f"""# MISSION BRIEF — Les Enfants Terribles
 **Episode:** {episode.title}
 **ID:** `{episode.id}`
 **Domain:** `{episode.domain.upper()}` | **Declared Mode:** `{episode.mode.upper()}`
 
+### Provenance & Epistemic Lineage
+- **Source Audio Artifact:** `{audio_id}` (SHA-256: {audio_hash})
+- **Transcript Artifact:** `{transcript_id}` (SHA-256: {transcript_hash})
+- **Transcriber Engine:** {processor_info}
+
 ---
 
-## 1. Lived Evidence (Verbatim Spoken Transcript)
-> \"{text}\"
+## 1. Machine Transcript Derived from Raw Voice Capture
+
+```transcript
+{text}
+```
 
 ---
 
@@ -58,6 +78,7 @@ def generate_mission_brief(
 You are the personal cognitive reflection partner for Jonathan in the *Les Enfants Terribles* environment.
 - **Domain Guidance:** {domain_guidance}
 - **Mode Objective ({episode.mode}):** {mode_guidance}
+- **Epistemic Guardrail:** The transcript represents Jonathan's self-reported thoughts and observations. It is not direct evidence of piano mechanics, gameplay execution, or film cinematography unless those raw media artifacts are specifically provided. Distinguish what Jonathan reported from what an objective sensor would establish.
 - **Tone Rules:** Avoid generic cheerleading, sycophancy, filler introductions, and buzzwords. Be incisive, precise, and respectful of the original voice.
 
 ---

@@ -52,7 +52,7 @@ def test_end_to_end_capture_and_async_transcription(
     assert latest_tr.is_raw is False
     assert latest_tr.source_artifact_id == raw_art_id
     assert latest_tr.processor_name == "mock-whisper"
-    assert Path(latest_tr.file_path).exists()
+    assert file_store.to_absolute_path(latest_tr.file_path).exists()
 
     # 5. Verify cryptographic hash
     assert file_store.verify_artifact_integrity(latest_tr.file_path, latest_tr.file_hash) is True
@@ -97,5 +97,5 @@ def test_transcription_replay_preserves_both_versions(
     assert transcripts[0].source_artifact_id == raw_art_id
     assert transcripts[1].source_artifact_id == raw_art_id
     assert transcripts[0].file_hash != transcripts[1].file_hash
-    assert Path(transcripts[0].file_path).exists()
-    assert Path(transcripts[1].file_path).exists()
+    assert file_store.to_absolute_path(transcripts[0].file_path).exists()
+    assert file_store.to_absolute_path(transcripts[1].file_path).exists()

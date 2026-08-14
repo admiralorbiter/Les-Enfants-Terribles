@@ -77,6 +77,9 @@ class Job(BaseModel):
     max_attempts: int = 3
     error_message: Optional[str] = None
     worker_id: Optional[str] = None
+    leased_by: Optional[str] = None
+    leased_at: Optional[str] = None
+    lease_expires_at: Optional[str] = None
     created_at: str = Field(default_factory=utc_now_iso)
     updated_at: str = Field(default_factory=utc_now_iso)
 

@@ -1,4 +1,4 @@
-"""Asynchronous job worker loop."""
+"""Asynchronous job worker loop with lease management and stale recovery."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ logger = logging.getLogger("let.worker")
 
 
 class JobWorker:
-    """Processes queued background tasks."""
+    """Processes queued background tasks with concurrency-safe leases."""
 
     def __init__(
         self,
@@ -28,11 +28,13 @@ class JobWorker:
         file_store: FileStore,
         transcriber: Optional[Transcriber] = None,
         worker_id: Optional[str] = None,
+        lease_duration_seconds: float = 300.0,
     ) -> None:
         self.config = config
         self.repo = repo
         self.file_store = file_store
         self.worker_id = worker_id or f"worker_{uuid.uuid4().hex[:8]}"
+        self.lease_duration_seconds = lease_duration_seconds
 
         if transcriber is None:
             self.transcriber = FasterWhisperTranscriber(
@@ -45,7 +47,13 @@ class JobWorker:
 
     def run_once(self) -> bool:
         """Attempt to claim and process one job. Returns True if work was done."""
-        job = self.repo.claim_next_job(self.worker_id)
+        # Clean up any stale running jobs from crashed workers
+        self.repo.recover_stale_jobs()
+
+        job = self.repo.claim_next_job(
+            worker_id=self.worker_id,
+            lease_duration_seconds=self.lease_duration_seconds,
+        )
         if not job:
             return False
 
@@ -65,6 +73,7 @@ class JobWorker:
 
             job.status = "succeeded"
             job.error_message = None
+            job.lease_expires_at = None
             self.repo.update_job(job)
             logger.info(f"Job {job.id} completed successfully.")
             return True
@@ -76,6 +85,8 @@ class JobWorker:
             else:
                 job.status = "queued"  # Will be retried
             job.error_message = str(e)
+            job.lease_expires_at = None
+            job.leased_by = None
             self.repo.update_job(job)
             return True
 

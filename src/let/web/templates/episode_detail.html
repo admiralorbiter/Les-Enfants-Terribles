@@ -29,7 +29,7 @@
     {% for art in artifacts %}
         {% if art.artifact_type == 'audio' %}
         <div class="audio-player-container" style="margin-bottom: 1rem;">
-            <audio id="audio-player-main" controls preload="auto" src="{{ url_for('main.stream_media', artifact_id=art.id) }}"></audio>
+            <audio id="audio-player-{{ art.id }}" controls preload="auto" src="{{ url_for('main.stream_media', artifact_id=art.id) }}"></audio>
             <div class="artifact-footer">
                 <span><strong class="raw-badge">RAW AUDIO</strong> SHA-256: <code>{{ art.file_hash[:16] }}...</code></span>
                 <span>{{ (art.size_bytes / 1024)|round(1) }} KB</span>

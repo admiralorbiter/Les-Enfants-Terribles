@@ -28,17 +28,17 @@ def test_capture_audio_json(
     }
     res = client.post("/api/capture/audio", data=data, content_type="multipart/form-data")
     assert res.status_code == 201
-    
+
     json_data = res.get_json()
     assert json_data["status"] == "success"
     assert json_data["episode"]["title"] == "Novel Insight on Cognition"
     assert json_data["episode"]["domain"] == "research"
     assert json_data["episode"]["mode"] == "challenge"
-    
+
     artifact = json_data["artifact"]
     assert artifact["artifact_type"] == "audio"
     assert artifact["is_raw"] is True
-    assert Path(artifact["file_path"]).exists()
+    assert (test_config.data_dir / artifact["file_path"]).exists()
 
 
 def test_capture_audio_htmx(

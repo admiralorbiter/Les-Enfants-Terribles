@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import uuid
 from pathlib import Path
@@ -42,9 +43,10 @@ def _get_config():
 
 
 def _load_transcript_data(artifact: Artifact) -> TranscriptData | None:
-    """Helper to read and parse derived transcript JSON file."""
+    """Helper to read and parse derived transcript JSON file using relative path resolution."""
     try:
-        path = Path(artifact.file_path)
+        file_store = _get_store()
+        path = file_store.to_absolute_path(artifact.file_path)
         if path.exists():
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -55,9 +57,10 @@ def _load_transcript_data(artifact: Artifact) -> TranscriptData | None:
 
 
 def _load_analysis_data(artifact: Artifact) -> AnalysisData | None:
-    """Helper to read and parse derived analysis JSON file."""
+    """Helper to read and parse derived analysis JSON file using relative path resolution."""
     try:
-        path = Path(artifact.file_path)
+        file_store = _get_store()
+        path = file_store.to_absolute_path(artifact.file_path)
         if path.exists():
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -179,12 +182,16 @@ def get_transcript_partial(episode_id: str):
 
 @bp.route("/episodes/<episode_id>/brief")
 def get_mission_brief(episode_id: str):
-    """Generate and return structured Mission Brief Markdown text."""
+    """Generate, persist, and return structured Mission Brief Markdown packet."""
     repo = _get_repo()
+    file_store = _get_store()
     episode = repo.get_episode(episode_id)
     if not episode:
         return jsonify({"error": "Episode not found"}), 404
 
+    artifacts = repo.list_artifacts_for_episode(episode_id)
+    audio_artifacts = [a for a in artifacts if a.artifact_type == "audio"]
+    latest_audio = audio_artifacts[-1] if audio_artifacts else None
     latest_transcript_art = repo.get_latest_transcript_for_episode(episode_id)
     transcript_data = (
         _load_transcript_data(latest_transcript_art)
@@ -195,12 +202,52 @@ def get_mission_brief(episode_id: str):
     brief_text = generate_mission_brief(
         episode=episode,
         transcript=transcript_data,
+        transcript_artifact=latest_transcript_art,
+        audio_artifact=latest_audio,
+    )
+
+    # Persist the Mission Brief as a derived artifact for exact lineage tracking
+    brief_bytes = brief_text.encode("utf-8")
+    brief_hash = file_store.compute_hash_bytes(brief_bytes)
+    target_filename = f"brief_{episode_id}_{brief_hash[:16]}.md"
+    rel_subpath = Path("derived") / "analyses" / target_filename
+    stored = file_store.save_derived_artifact(brief_bytes, rel_subpath)
+
+    brief_artifact_id = f"art_br_{uuid.uuid4().hex[:12]}"
+    brief_art = Artifact(
+        id=brief_artifact_id,
+        episode_id=episode_id,
+        artifact_type="mission_brief",
+        is_raw=False,
+        file_path=stored.relative_path,
+        file_hash=brief_hash,
+        mime_type="text/markdown",
+        size_bytes=stored.size_bytes,
+        source_artifact_id=latest_transcript_art.id if latest_transcript_art else None,
+        processor_name="mission_brief_generator",
+        processor_version="v1.0",
+    )
+    repo.create_artifact(brief_art)
+
+    repo.create_event(
+        Event(
+            id=f"evt_{uuid.uuid4().hex[:12]}",
+            episode_id=episode_id,
+            event_type="mission_brief_exported",
+            payload_json=json.dumps(
+                {
+                    "brief_artifact_id": brief_artifact_id,
+                    "brief_hash": brief_hash,
+                }
+            ),
+        )
     )
 
     if request.args.get("format") == "json":
         return jsonify(
             {
                 "episode_id": episode.id,
+                "brief_artifact_id": brief_artifact_id,
                 "brief_markdown": brief_text,
             }
         )
@@ -219,22 +266,27 @@ def import_analysis(episode_id: str):
     if not episode:
         return jsonify({"error": "Episode not found"}), 404
 
-    raw_response = request.form.get("response_text", "").strip()
-    if not raw_response:
-        data = request.get_json(silent=True) or {}
-        raw_response = data.get("response_text", "").strip()
-
+    payload = request.get_json(silent=True) or {}
+    raw_response = request.form.get("response_text", "").strip() or payload.get("response_text", "").strip()
     if not raw_response:
         return jsonify({"error": "No response text provided"}), 400
 
     provider = (
-        request.form.get("provider", "manual").strip()
-        or request.get_json(silent=True, default={}).get("provider", "manual")
-    )
+        request.form.get("provider")
+        or payload.get("provider")
+        or "manual"
+    ).strip()
 
-    # Link back to latest transcript as source artifact
+    # Link back to latest mission brief or latest transcript as source artifact
+    artifacts = repo.list_artifacts_for_episode(episode_id)
+    brief_artifacts = [a for a in artifacts if a.artifact_type == "mission_brief"]
     latest_transcript = repo.get_latest_transcript_for_episode(episode_id)
-    source_artifact_id = latest_transcript.id if latest_transcript else None
+
+    source_artifact_id = (
+        brief_artifacts[-1].id
+        if brief_artifacts
+        else (latest_transcript.id if latest_transcript else None)
+    )
 
     # Persist derived analysis artifact
     artifact, analysis_data = import_analysis_response(
@@ -269,30 +321,29 @@ def import_analysis(episode_id: str):
 
 @bp.route("/api/episodes/<episode_id>/update_title", methods=["POST"])
 def update_title(episode_id: str):
-    """In-place episode title rename endpoint."""
+    """In-place episode title rename endpoint with HTML escaping."""
     repo = _get_repo()
     episode = repo.get_episode(episode_id)
     if not episode:
         return jsonify({"error": "Episode not found"}), 404
 
-    new_title = request.form.get("title", "").strip()
-    if not new_title:
-        data = request.get_json(silent=True) or {}
-        new_title = data.get("title", "").strip()
+    payload = request.get_json(silent=True) or {}
+    new_title = request.form.get("title", "").strip() or payload.get("title", "").strip()
 
     if new_title:
         episode.title = new_title
         repo.update_episode(episode)
 
     if request.headers.get("HX-Request"):
-        return f'<a href="/episodes/{episode.id}" class="episode-title-link">{episode.title}</a>'
+        safe_title = html.escape(episode.title)
+        return f'<a href="/episodes/{episode.id}" class="episode-title-link">{safe_title}</a>'
 
     return jsonify({"status": "success", "episode": episode.model_dump()})
 
 
 @bp.route("/api/capture/audio", methods=["POST"])
 def capture_audio():
-    """Atomic raw audio ingestion endpoint with automatic background transcribe enqueue."""
+    """Atomic raw audio ingestion endpoint with single-transaction persistence and disk receipts."""
     if "audio" not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
@@ -308,8 +359,9 @@ def capture_audio():
     repo = _get_repo()
     file_store = _get_store()
 
-    # Determine or create episode
+    # 1. Determine episode
     is_new_episode = False
+    episode = None
     if episode_id:
         episode = repo.get_episode(episode_id)
         if not episode:
@@ -326,33 +378,27 @@ def capture_audio():
             domain=domain,
             mode=mode,
         )
-        repo.create_episode(episode)
 
-    # Atomically save raw audio to immutable store
+    # 2. Atomically save raw audio to immutable store FIRST
     stored = file_store.save_raw_audio(
         data=audio_file.stream,
         original_filename=audio_file.filename,
         episode_id=episode_id,
     )
 
-    # Determine mime type
     mime_type = audio_file.content_type or "audio/webm"
-
-    # Create raw artifact record
     artifact_id = f"art_{uuid.uuid4().hex[:12]}"
     artifact = Artifact(
         id=artifact_id,
         episode_id=episode_id,
         artifact_type="audio",
         is_raw=True,
-        file_path=str(stored.file_path),
+        file_path=stored.relative_path,
         file_hash=stored.file_hash,
         mime_type=mime_type,
         size_bytes=stored.size_bytes,
     )
-    repo.create_artifact(artifact)
 
-    # Log capture event
     event = Event(
         id=f"evt_{uuid.uuid4().hex[:12]}",
         episode_id=episode_id,
@@ -366,9 +412,7 @@ def capture_audio():
             }
         ),
     )
-    repo.create_event(event)
 
-    # Automatically enqueue background transcription job
     job_id = f"job_{uuid.uuid4().hex[:12]}"
     job = Job(
         id=job_id,
@@ -377,7 +421,32 @@ def capture_audio():
         artifact_id=artifact_id,
         status="queued",
     )
-    repo.create_job(job)
+
+    # 3. Commit entire capture bundle in a SINGLE atomic database transaction
+    try:
+        repo.create_capture_bundle(
+            artifact=artifact,
+            event=event,
+            episode=episode if is_new_episode else None,
+            job=job,
+        )
+    except Exception as exc:
+        # Save disk recovery receipt so let doctor --repair can rescue it
+        file_store.write_capture_receipt(
+            relative_file_path=stored.relative_path,
+            episode_id=episode_id,
+            metadata={
+                "title": title or "Recovered Capture",
+                "domain": domain,
+                "mode": mode,
+                "artifact_id": artifact_id,
+                "file_hash": stored.file_hash,
+                "mime_type": mime_type,
+                "size_bytes": stored.size_bytes,
+                "error": str(exc),
+            },
+        )
+        return jsonify({"error": f"Database commit failed, recovery receipt saved: {exc}"}), 500
 
     # Return HTMX partial or JSON
     if request.headers.get("HX-Request"):
@@ -446,13 +515,14 @@ def retranscribe_episode(episode_id: str):
 
 @bp.route("/media/<artifact_id>")
 def stream_media(artifact_id: str):
-    """Secure range-request streaming for audio/video artifacts."""
+    """Secure range-request streaming for audio/video artifacts using relative path resolution."""
     repo = _get_repo()
+    file_store = _get_store()
     artifact = repo.get_artifact(artifact_id)
     if not artifact:
         abort(404, description="Artifact not found")
 
-    file_path = Path(artifact.file_path)
+    file_path = file_store.to_absolute_path(artifact.file_path)
     if not file_path.exists():
         abort(404, description="Raw media file missing from disk store")
 

@@ -1,11 +1,11 @@
-"""Tests for SQLite persistence, transactions, and entity relations."""
+"""Tests for SQLite persistence, transactions, migrations, and entity relations."""
 
 from __future__ import annotations
 
 import sqlite3
 import pytest
 from let.db.repository import Repository
-from let.models.entities import Artifact, Episode, Event
+from let.models.entities import Artifact, Episode, Event, Job
 
 
 def test_episode_crud(repo: Repository) -> None:
@@ -49,7 +49,7 @@ def test_artifact_and_lineage(repo: Repository) -> None:
         episode_id="ep_art_001",
         artifact_type="audio",
         is_raw=True,
-        file_path="/tmp/raw.wav",
+        file_path="raw/audio/raw.wav",
         file_hash="a" * 64,
         mime_type="audio/wav",
         size_bytes=1024,
@@ -62,7 +62,7 @@ def test_artifact_and_lineage(repo: Repository) -> None:
         episode_id="ep_art_001",
         artifact_type="transcript",
         is_raw=False,
-        file_path="/tmp/transcript.json",
+        file_path="derived/transcripts/transcript.json",
         file_hash="b" * 64,
         mime_type="application/json",
         size_bytes=256,
@@ -78,6 +78,37 @@ def test_artifact_and_lineage(repo: Repository) -> None:
     assert artifacts[0].is_raw is True
     assert artifacts[1].id == "art_der_001"
     assert artifacts[1].source_artifact_id == "art_raw_001"
+
+
+def test_create_capture_bundle_atomic(repo: Repository) -> None:
+    ep = Episode(id="ep_bundle_1", title="Bundle Test", domain="research")
+    art = Artifact(
+        id="art_b_1",
+        episode_id="ep_bundle_1",
+        artifact_type="audio",
+        is_raw=True,
+        file_path="raw/audio/b.webm",
+        file_hash="f" * 64,
+        mime_type="audio/webm",
+        size_bytes=2048,
+    )
+    evt = Event(id="evt_b_1", episode_id="ep_bundle_1", event_type="capture_saved")
+    job = Job(id="job_b_1", job_type="transcribe_audio", episode_id="ep_bundle_1", artifact_id="art_b_1")
+
+    repo.create_capture_bundle(artifact=art, event=evt, episode=ep, job=job)
+
+    assert repo.get_episode("ep_bundle_1") is not None
+    assert repo.get_artifact("art_b_1") is not None
+    assert len(repo.list_events_for_episode("ep_bundle_1")) == 1
+    assert repo.get_job("job_b_1") is not None
+
+
+def test_schema_migrations_applied(repo: Repository) -> None:
+    with repo.db.transaction() as conn:
+        rows = conn.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall()
+        versions = [r[0] for r in rows]
+        assert 1 in versions
+        assert 2 in versions
 
 
 def test_event_logging(repo: Repository) -> None:
@@ -99,13 +130,12 @@ def test_event_logging(repo: Repository) -> None:
 
 
 def test_foreign_key_enforcement(repo: Repository) -> None:
-    # Attempt to insert artifact without valid episode must fail
     orphan_artifact = Artifact(
         id="art_orphan",
         episode_id="non_existent_ep",
         artifact_type="audio",
         is_raw=True,
-        file_path="/tmp/orphan.wav",
+        file_path="raw/audio/orphan.wav",
         file_hash="c" * 64,
         mime_type="audio/wav",
         size_bytes=512,

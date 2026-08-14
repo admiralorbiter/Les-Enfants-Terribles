@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from pathlib import Path
 from let.config import Config
@@ -28,7 +27,7 @@ def handle_transcribe_audio(
     if not audio_artifact:
         raise FileNotFoundError(f"Audio artifact {job.artifact_id} not found in database")
 
-    audio_path = Path(audio_artifact.file_path)
+    audio_path = file_store.to_absolute_path(audio_artifact.file_path)
     if not audio_path.exists():
         raise FileNotFoundError(f"Audio file missing on disk: {audio_path}")
 
@@ -56,24 +55,22 @@ def handle_transcribe_audio(
     json_bytes = json_str.encode("utf-8")
     transcript_hash = FileStore.compute_hash_bytes(json_bytes)
 
-    # Persist derived transcript to filesystem
+    # Persist derived transcript atomically via FileStore
     target_filename = f"transcript_{job.episode_id}_{transcript_hash[:16]}.json"
-    transcript_path = config.derived_transcripts_dir / target_filename
+    rel_subpath = Path("derived") / "transcripts" / target_filename
+    stored = file_store.save_derived_artifact(json_bytes, rel_subpath)
 
-    with open(transcript_path, "wb") as f:
-        f.write(json_bytes)
-
-    # Register derived artifact in SQLite with lineage pointer
+    # Register derived artifact in SQLite with lineage pointer and relative path
     transcript_artifact_id = f"art_tr_{uuid.uuid4().hex[:12]}"
     transcript_artifact = Artifact(
         id=transcript_artifact_id,
         episode_id=job.episode_id or audio_artifact.episode_id,
         artifact_type="transcript",
         is_raw=False,
-        file_path=str(transcript_path),
+        file_path=stored.relative_path,
         file_hash=transcript_hash,
         mime_type="application/json",
-        size_bytes=len(json_bytes),
+        size_bytes=stored.size_bytes,
         source_artifact_id=audio_artifact.id,
         processor_name=transcriber.name,
         processor_version=transcriber.version,

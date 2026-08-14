@@ -195,17 +195,27 @@ last_reviewed: "2026-08-13"
 
 **Rationale:** Satisfies the practical need for clean written summaries from spoken rambles while preserving strict epistemic separation and providing metacognitive challenge.
 
+---
+
+### LET-D-020 — Single-Transaction Capture & Storage Relativity
+
+**Decision:** Store all artifact file paths relative to `config.data_dir` in SQLite, write raw media to disk before database insertion, commit `Episode`, `Artifact`, `Event`, and `Job` in a single SQLite transaction, and emit local JSON crash recovery receipts if the database transaction fails.
+
+**Rationale:** Prevents orphaned state across directories, guarantees database portability across machines and folders, and eliminates partial-save capture loss.
+
+---
+
+### LET-D-021 — Native SQLite Disaster Recovery & Verified Rehearsal
+
+**Decision:** Implement backup and restore via SQLite's online backup API (`conn.backup`) alongside cryptographic `manifest.json` generation and trial rehearsal verification (`let backup`, `let restore --verify`).
+
+**Rationale:** Plain file copies of active WAL databases risk corruption. Verified rehearsal in isolated scratch directories proves disaster recoverability before live mutation.
+
 ## 2. Open questions
 
-### LET-Q-001 — Data root and backup
+### LET-Q-001 — Data root and backup [RESOLVED by LET-D-020 & LET-D-021]
 
-Where should the first data root live, and what is the simplest reliable backup/restore path?
-
-Candidate:
-
-- local dedicated folder;
-- periodic manifest ZIP;
-- manual copy to Google Drive initially.
+Resolved: Dedicated local folder `~/.let_data` (overridable via `LET_DATA_DIR`) with native online SQLite backups, cryptographic `manifest.json` generation, and `let restore --verify` rehearsals.
 
 ### LET-Q-002 — Exact transcription configuration
 

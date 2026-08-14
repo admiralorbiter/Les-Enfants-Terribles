@@ -1,5 +1,5 @@
 <div id="transcript-container-{{ episode.id }}" class="transcript-box"
-     {% if latest_job and latest_job.status in ['queued', 'running'] and not transcript_data %}
+     {% if latest_job and latest_job.status in ['queued', 'running'] %}
      hx-get="{{ url_for('main.get_transcript_partial', episode_id=episode.id) }}"
      hx-trigger="every 2s"
      hx-swap="outerHTML"
@@ -7,7 +7,7 @@
     
     <div class="transcript-header">
         <span class="transcript-title">Transcript</span>
-        {% if latest_job and latest_job.status in ['queued', 'running'] and not transcript_data %}
+        {% if latest_job and latest_job.status in ['queued', 'running'] %}
             <span class="status-pill status-running">● Transcribing...</span>
         {% elif transcript_data %}
             <span class="status-pill status-ready">✓ Ready ({{ transcript_data.processor_version }})</span>
@@ -23,7 +23,7 @@
             {% if transcript_data.segments %}
             <div class="transcript-segments">
                 {% for seg in transcript_data.segments %}
-                <div class="transcript-segment" onclick="seekAudio({{ seg.start_sec }})">
+                <div class="transcript-segment" onclick="seekAudio('{{ transcript_art.source_artifact_id if transcript_art else '' }}', {{ seg.start_sec }})">
                     <span class="segment-time">[{{ '%02d:%02d' % ((seg.start_sec // 60)|int, (seg.start_sec % 60)|int) }}]</span>
                     <span class="segment-text">{{ seg.text }}</span>
                 </div>

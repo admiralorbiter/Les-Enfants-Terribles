@@ -1,5 +1,6 @@
-"""Storage primitives for LET."""
+"""Storage primitives and disaster recovery for LET."""
 
-from .file_store import FileStore
+from .backup import create_backup, verify_and_restore
+from .file_store import FileStore, StoredFileResult
 
-__all__ = ["FileStore"]
+__all__ = ["FileStore", "StoredFileResult", "create_backup", "verify_and_restore"]

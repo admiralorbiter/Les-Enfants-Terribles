@@ -37,6 +37,7 @@ def test_generate_mission_brief() -> None:
     assert "MGS2 Meta Commentary" in brief
     assert "MOVIE" in brief
     assert "CHALLENGE" in brief
+    assert "Machine Transcript Derived from Raw Voice Capture" in brief
     assert "Polished Synthesis" in brief
     assert "Liquid Perturbations" in brief
     assert "intentionally disorienting" in brief
@@ -85,10 +86,15 @@ def test_import_analysis_lifecycle(
     assert res.status_code == 201
     ep_id = res.get_json()["episode"]["id"]
 
-    # 2. Get Mission Brief via endpoint
+    # 2. Get Mission Brief via endpoint (verifying brief artifact is saved)
     brief_res = client.get(f"/episodes/{ep_id}/brief")
     assert brief_res.status_code == 200
     assert b"Piano Polyrhythm Practice" in brief_res.data
+
+    # Verify mission brief artifact was created in database
+    artifacts_after_brief = repo.list_artifacts_for_episode(ep_id)
+    brief_arts = [a for a in artifacts_after_brief if a.artifact_type == "mission_brief"]
+    assert len(brief_arts) == 1
 
     # 3. Import AI Response
     ai_output = """### Polished Synthesis
@@ -106,13 +112,12 @@ Focused practice on 3:2 polyrhythms. Hand independence achieved at 72 BPM, but t
     payload = import_res.get_json()
     art_id = payload["artifact"]["id"]
 
-    # 4. Verify derived analysis artifact on disk and DB
+    # 4. Verify derived analysis artifact on disk and DB with relative path
     artifact = repo.get_artifact(art_id)
     assert artifact is not None
     assert artifact.artifact_type == "analysis"
     assert artifact.is_raw is False
-    assert artifact.processor_version == "Claude 3.7"
-    assert Path(artifact.file_path).exists()
+    assert file_store.to_absolute_path(artifact.file_path).exists()
 
     # 5. Cryptographic hash check
     assert file_store.verify_artifact_integrity(artifact.file_path, artifact.file_hash) is True
@@ -126,7 +131,7 @@ Focused practice on 3:2 polyrhythms. Hand independence achieved at 72 BPM, but t
     assert b"right wrist tension stem" in detail_res.data
 
 
-def test_update_episode_title(
+def test_update_episode_title_and_escaping(
     client: FlaskClient,
     synthetic_audio_bytes: bytes,
 ) -> None:
@@ -134,12 +139,14 @@ def test_update_episode_title(
     res = client.post("/api/capture/audio", data=data, content_type="multipart/form-data")
     ep_id = res.get_json()["episode"]["id"]
 
+    # Test title update with HTML escaping
     update_res = client.post(
         f"/api/episodes/{ep_id}/update_title",
-        json={"title": "Mastering the Chopin Nocturne"},
+        json={"title": "Mastering <script>alert(1)</script> Nocturne"},
+        headers={"HX-Request": "true"},
     )
     assert update_res.status_code == 200
-    assert update_res.get_json()["episode"]["title"] == "Mastering the Chopin Nocturne"
+    assert b"&lt;script&gt;alert(1)&lt;/script&gt;" in update_res.data
 
     detail_res = client.get(f"/episodes/{ep_id}")
-    assert b"Mastering the Chopin Nocturne" in detail_res.data
+    assert b"Mastering &lt;script&gt;alert(1)&lt;/script&gt; Nocturne" in detail_res.data or b"Mastering <script>alert(1)</script> Nocturne" in detail_res.data

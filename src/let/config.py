@@ -29,6 +29,14 @@ class Config:
         return self.data_dir / "let.sqlite"
 
     @property
+    def raw_dir(self) -> Path:
+        return self.data_dir / "raw"
+
+    @property
+    def derived_dir(self) -> Path:
+        return self.data_dir / "derived"
+
+    @property
     def raw_audio_dir(self) -> Path:
         return self.data_dir / "raw" / "audio"
 

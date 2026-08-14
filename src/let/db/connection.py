@@ -1,4 +1,4 @@
-"""SQLite connection manager with WAL mode and foreign key enforcement."""
+"""SQLite connection manager with WAL mode, migration runner, and online backup."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator
 from let.config import Config
-from .schema import SCHEMA_V1_SQL
+from .schema import initialize_and_migrate
 
 
 class DatabaseManager:
-    """Manages SQLite database connections and transactions."""
+    """Manages SQLite database connections, schema migrations, and backups."""
 
     def __init__(self, config: Config) -> None:
         self.config = config
@@ -40,7 +40,35 @@ class DatabaseManager:
             conn.close()
 
     def initialize_schema(self) -> None:
-        """Apply schema scripts if tables do not exist."""
+        """Ensure data directories exist and execute all pending migrations."""
         self.config.ensure_directories()
         with self.transaction() as conn:
-            conn.executescript(SCHEMA_V1_SQL)
+            initialize_and_migrate(conn)
+
+    def backup_to(self, target_path: Path | str) -> None:
+        """Perform a clean online SQLite backup using the native SQLite backup API.
+
+        This avoids file-copy corruption on active WAL databases.
+        """
+        target_path = Path(target_path)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        if target_path.exists():
+            target_path.unlink()
+
+        source_conn = self.get_connection()
+        try:
+            dest_conn = sqlite3.connect(str(target_path))
+            try:
+                source_conn.backup(dest_conn)
+            finally:
+                dest_conn.close()
+        finally:
+            source_conn.close()
+
+    def check_integrity(self) -> bool:
+        """Run SQLite PRAGMA integrity_check and return True if healthy."""
+        with self.transaction() as conn:
+            result = conn.execute("PRAGMA integrity_check;").fetchone()
+            if result and result[0] == "ok":
+                return True
+        return False

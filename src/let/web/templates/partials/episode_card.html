@@ -23,7 +23,7 @@
     {% for art in arts %}
         {% if art.artifact_type == 'audio' %}
         <div class="audio-player-container">
-            <audio id="audio-player-{{ ep.id }}" controls preload="none" src="{{ url_for('main.stream_media', artifact_id=art.id) }}">
+            <audio id="audio-player-{{ art.id }}" controls preload="none" src="{{ url_for('main.stream_media', artifact_id=art.id) }}">
                 Your browser does not support audio playback.
             </audio>
             <div class="artifact-footer">

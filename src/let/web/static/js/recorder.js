@@ -5,6 +5,7 @@ let audioChunks = [];
 let recordTimerInterval = null;
 let recordStartTime = null;
 let audioStream = null;
+let lastFailedCapture = null;
 
 function getSupportedMimeType() {
     const types = [
@@ -58,7 +59,9 @@ async function toggleRecording(episodeId = null) {
             mediaRecorder.onstop = async () => {
                 const mime = mediaRecorder.mimeType || 'audio/webm';
                 const audioBlob = new Blob(audioChunks, { type: mime });
-                audioStream.getTracks().forEach(track => track.stop());
+                if (audioStream) {
+                    audioStream.getTracks().forEach(track => track.stop());
+                }
                 await uploadRecording(audioBlob, mime, episodeId);
             };
 
@@ -95,6 +98,7 @@ async function uploadRecording(blob, mimeType, episodeId = null) {
     const titleInput = document.getElementById('episode-title');
     const domainInput = document.getElementById('episode-domain');
     const modeInput = document.getElementById('episode-mode');
+    const recoveryBanner = document.getElementById('capture-recovery-banner');
 
     const formData = new FormData();
     const ext = mimeType.includes('ogg') ? '.ogg' : mimeType.includes('wav') ? '.wav' : '.webm';
@@ -136,10 +140,8 @@ async function uploadRecording(blob, mimeType, episodeId = null) {
         }
 
         if (feed) {
-            // Prepend new episode card
             feed.insertAdjacentHTML('afterbegin', html);
         } else if (episodeId) {
-            // We are in episode detail, reload to see newly attached artifact
             window.location.reload();
         }
 
@@ -147,14 +149,78 @@ async function uploadRecording(blob, mimeType, episodeId = null) {
         timerDisplay.textContent = '00:00';
         if (titleInput) titleInput.value = '';
 
+        if (recoveryBanner) {
+            recoveryBanner.style.display = 'none';
+        }
+        lastFailedCapture = null;
+
         setTimeout(() => {
             statusText.textContent = 'Ready to capture';
         }, 3000);
 
     } catch (err) {
         console.error('Save error:', err);
+        lastFailedCapture = { blob, mimeType, episodeId };
         statusText.textContent = `Save failed: ${err.message}`;
-        alert(`Failed to persist raw capture: ${err.message}`);
+        showEmergencyRecoveryUI(err.message);
+    }
+}
+
+function showEmergencyRecoveryUI(errorMessage) {
+    let banner = document.getElementById('capture-recovery-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'capture-recovery-banner';
+        banner.className = 'recovery-banner';
+        const controlPanel = document.querySelector('.capture-controls') || document.body;
+        controlPanel.insertAdjacentElement('afterend', banner);
+    }
+
+    banner.style.display = 'block';
+    banner.innerHTML = `
+        <div style="background: #2a1b1b; border: 1px solid #ff4444; border-radius: 6px; padding: 12px 16px; margin: 12px 0; color: #ffcccc;">
+            <p style="margin: 0 0 8px 0; font-weight: bold;">⚠️ Upload failed: ${errorMessage}</p>
+            <p style="margin: 0 0 10px 0; font-size: 0.9em;">Your raw audio is safe in browser memory. You can retry the upload or download a backup copy immediately:</p>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" onclick="retryLastCapture()" style="background: #ff5555; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Retry Upload</button>
+                <button type="button" onclick="downloadEmergencyAudio()" style="background: #444; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Emergency Download (.webm)</button>
+            </div>
+        </div>
+    `;
+}
+
+async function retryLastCapture() {
+    if (!lastFailedCapture) return;
+    const { blob, mimeType, episodeId } = lastFailedCapture;
+    await uploadRecording(blob, mimeType, episodeId);
+}
+
+function downloadEmergencyAudio() {
+    if (!lastFailedCapture || !lastFailedCapture.blob) {
+        alert('No capture available in memory.');
+        return;
+    }
+    const url = URL.createObjectURL(lastFailedCapture.blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `emergency_capture_${Date.now()}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// ---------------- Global Audio Seeking ----------------
+
+function seekAudio(artifactId, seconds) {
+    // Look for specific player first, fallback to generic
+    let player = document.getElementById(`audio-player-${artifactId}`);
+    if (!player) {
+        player = document.getElementById('audio-player-main') || document.querySelector('audio');
+    }
+    if (player) {
+        player.currentTime = parseFloat(seconds);
+        player.play().catch(() => {});
     }
 }
 

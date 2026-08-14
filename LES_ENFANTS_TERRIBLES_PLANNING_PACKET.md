@@ -1570,14 +1570,16 @@ Because subscription access is abundant and API spending is undesirable, human-m
 
 Generate a bounded **Mission Brief** containing:
 
-- episode purpose;
+- episode purpose and domain;
 - selected transcript/media references;
-- declared mode;
-- requested processor behavior;
-- provenance;
-- exact return schema.
+- declared cognitive mode (*Explore, Challenge, Understand, Improve, Surprise, Decide*);
+- requested dual output specifications:
+  1. **Polished Synthesis / Review Note:** clean, structured restructuring of spoken thoughts in authentic voice;
+  2. **Liquid Perturbations:** 1–2 high-leverage questions or challenges;
+- provenance and content hashes;
+- exact return markdown schema.
 
-Copy it to clipboard or save Markdown/JSON.
+Copy it to clipboard with one click or save Markdown/JSON.
 
 #### External run
 
@@ -1585,17 +1587,16 @@ Jonathan uses Antigravity, ChatGPT, Claude, Gemini, or another subscribed interf
 
 #### Import
 
-Paste or upload the response.
+Paste the response back into LET.
 
 LET records:
 
 - provider/model if known;
 - prompt packet hash;
-- response;
-- time;
-- parser version;
-- output type;
-- human notes.
+- derived analysis artifact with SHA-256 hash;
+- link to source transcript (`source_artifact_id`);
+- time and parser version;
+- rendered Polished Summary with 1-click copy and prominent Liquid Question card.
 
 Manual transport does not weaken provenance if it is recorded explicitly.
 
@@ -2598,27 +2599,37 @@ By the end of the period, we should know:
 
 ## 3. Minimum meaningful build
 
-The first vertical slice should support:
+The implementation progresses through explicit vertical slices:
 
-1. local app launch;
-2. audio record/stop;
-3. atomic raw save;
-4. SQLite episode/artifact record;
-5. recent-episode list;
-6. audio playback;
-7. background transcription;
-8. transcript view;
-9. follow-up voice capture attached to the same episode;
-10. backup/doctor basics.
+### Slice 0 — Foundation Capture Substrate (Completed)
+- Local app launch (`python app.py` or `let run`);
+- Browser microphone record/stop;
+- Atomic raw audio persistence with SHA-256 hash calculation;
+- SQLite metadata (episodes, artifacts, events);
+- Recent episode feed and immediate in-browser audio playback;
+- Diagnostic doctor and integrity verification (`let doctor`).
 
-Strongly preferred within the field period:
+### Slice 1 — Asynchronous Worker & Speech-to-Text (Completed)
+- SQLite-backed asynchronous job queue with atomic leasing and retry limits;
+- Local `faster-whisper` transcription (`small.en` default with resilient CPU fallback);
+- Derived transcript artifacts linked to raw audio with cryptographic hashes;
+- Interactive timestamp seeking in web UI (clicking `[00:03]` seeks audio);
+- Replay and CLI transcription triggers.
 
-11. mode selection;
-12. manual Liquid question;
-13. Mission Brief export;
-14. external-response import;
-15. simple feedback;
-16. replay of one processor.
+### Slice 2A — Mission Brief Bridge & Polished Synthesis (Active)
+- 1-click **Mission Brief** Markdown export tailored by domain and declared mode;
+- Dual output protocol: (1) **Polished Synthesis / Review Note** and (2) **Liquid Perturbations**;
+- External model response import back into LET;
+- Derived analysis persistence with SHA-256 lineage tracking;
+- 1-click copy for clean synthesis and prominent Liquid question display.
+
+### Slice 2B — Flexible Follow-Up Dialogue (Planned)
+- Multi-modal response capture (voice recording and typed text notes attached directly to Liquid questions);
+- Multi-turn conversation trail (*Capture → Question → Answer → Follow-up*).
+
+### Slice 2C — Lightweight Calibration & Built-in Heuristics (Planned)
+- 1-tap feedback reactions (`Useful`, `Surprising`, `Already Knew`, `Intrusive`);
+- Deterministic/offline question primitives.
 
 Not required:
 
@@ -3793,17 +3804,48 @@ Only local evidence can justify making that probe part of Jonathan’s life.
 
 **Rationale:** The metaphor should clarify rather than obscure.
 
+---
+
+### LET-D-018 — Slice 2 Decomposition (2A, 2B, 2C)
+
+**Decision:** Decompose Slice 2 (Liquid Core & AI Bridge) into three independent, testable micro-slices:
+- **Slice 2A:** Mission Brief Export & Polished Synthesis/Response Import (pure prompt and bridge probe);
+- **Slice 2B:** Flexible Follow-Up Dialogue (multi-modal voice and typed text note responses);
+- **Slice 2C:** Lightweight Calibration & Built-in Heuristics (1-tap feedback and offline deterministic question templates).
+
+**Rationale:** Avoids conflating prompt quality, bridge friction, and interaction modality. Allows rapid validation of external AI value before building complex conversational branching.
+
+---
+
+### LET-D-019 — Dual Output of Mission Brief (Polished Synthesis + Liquid Perturbation)
+
+**Decision:** The Mission Brief protocol requests two distinct, versioned derived artifacts:
+1. **Polished Synthesis / Review Note:** A clean, publication-ready restructuring of the spoken thought in Jonathan's authentic voice (for Letterboxd, notes, or professional docs);
+2. **Liquid Perturbation:** 1–2 high-leverage cognitive questions or challenges tailored to the declared mode.
+
+**Rationale:** Satisfies the practical need for clean written summaries from spoken rambles while preserving strict epistemic separation and providing metacognitive challenge.
+
+---
+
+### LET-D-020 — Single-Transaction Capture & Storage Relativity
+
+**Decision:** Store all artifact file paths relative to `config.data_dir` in SQLite, write raw media to disk before database insertion, commit `Episode`, `Artifact`, `Event`, and `Job` in a single SQLite transaction, and emit local JSON crash recovery receipts if the database transaction fails.
+
+**Rationale:** Prevents orphaned state across directories, guarantees database portability across machines and folders, and eliminates partial-save capture loss.
+
+---
+
+### LET-D-021 — Native SQLite Disaster Recovery & Verified Rehearsal
+
+**Decision:** Implement backup and restore via SQLite's online backup API (`conn.backup`) alongside cryptographic `manifest.json` generation and trial rehearsal verification (`let backup`, `let restore --verify`).
+
+**Rationale:** Plain file copies of active WAL databases risk corruption. Verified rehearsal in isolated scratch directories proves disaster recoverability before live mutation.
+
 ## 2. Open questions
 
-### LET-Q-001 — Data root and backup
+### LET-Q-001 — Data root and backup [RESOLVED by LET-D-020 & LET-D-021]
 
-Where should the first data root live, and what is the simplest reliable backup/restore path?
-
-Candidate:
-
-- local dedicated folder;
-- periodic manifest ZIP;
-- manual copy to Google Drive initially.
+Resolved: Dedicated local folder `~/.let_data` (overridable via `LET_DATA_DIR`) with native online SQLite backups, cryptographic `manifest.json` generation, and `let restore --verify` rehearsals.
 
 ### LET-Q-002 — Exact transcription configuration
 
@@ -3901,6 +3943,14 @@ Should the code repository remain private initially and become public after data
 ### LET-Q-018 — Experiment statistics
 
 At what point is repeated informal use enough, and when should LET use randomization or a formal within-person design?
+
+### LET-Q-019 — Follow-up Modality & Multi-turn Thread Pulling in the Bridge
+
+When Liquid generates a sharp perturbation, how should follow-up exploration and resolution be captured in LET?
+
+- **Case 1 (Single-Shot Punch):** The question is immediately clear and Jonathan wants to record a direct voice or text answer attached to the episode in LET.
+- **Case 2 (Thread Pulling):** The question opens a broader thread where Jonathan chats back and forth with external AI (Antigravity, ChatGPT, Claude) across 3–4 turns before the core insight crystallizes. At what point and in what format should that final crystallization be synthesized and imported into LET?
+- **Evolutionary Path:** How does this manual third-party chat workflow transition to an internal/local Liquid engine over time without corrupting artifact lineage?
 
 ## 3. Deliberately undecided
 
