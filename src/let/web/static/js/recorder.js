@@ -141,6 +141,9 @@ async function uploadRecording(blob, mimeType, episodeId = null) {
 
         if (feed) {
             feed.insertAdjacentHTML('afterbegin', html);
+            if (window.htmx) {
+                htmx.process(feed);
+            }
         } else if (episodeId) {
             window.location.reload();
         }
@@ -330,6 +333,9 @@ async function submitAnalysisImport(event, episodeId) {
         const container = document.getElementById(`analysis-container-${episodeId}`);
         if (container) {
             container.outerHTML = html;
+            if (window.htmx) {
+                htmx.process(document.getElementById(`analysis-container-${episodeId}`) || document.body);
+            }
         }
 
         closeImportModal(episodeId);
