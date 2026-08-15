@@ -72,6 +72,7 @@
         </div>
 
         <input type="hidden" id="prediction-concept" value="">
+        <input type="hidden" id="prediction-concept-id" value="">
         <input type="hidden" id="prediction-confidence" value="medium">
 
         <!-- Voice Prediction Controls with Custom Dark Audio Player -->
@@ -122,7 +123,13 @@
 
 <section>
     <div class="section-header">
-        <h2 class="section-title">Recent Episodes</h2>
+        <div class="section-title-group">
+            <h2 class="section-title">Recent Episodes</h2>
+            <div class="feed-view-toggles">
+                <button type="button" class="btn-feed-toggle" id="btn-collapse-all" onclick="collapseAllEpisodes()" title="Collapse all episodes">⊞ Collapse All</button>
+                <button type="button" class="btn-feed-toggle" id="btn-expand-all" onclick="expandAllEpisodes()" title="Expand all episodes">⊟ Expand All</button>
+            </div>
+        </div>
         <div class="domain-tabs">
             <a href="{{ url_for('main.index') }}" class="domain-tab {% if not current_domain %}active{% endif %}">All</a>
             <a href="{{ url_for('main.index', domain='movie') }}" class="domain-tab {% if current_domain == 'movie' %}active{% endif %}">Movies</a>

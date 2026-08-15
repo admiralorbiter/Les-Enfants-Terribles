@@ -244,12 +244,39 @@ class Repository:
 
     def create_capture_bundle(
         self,
-        artifact: Artifact,
-        event: Event,
+        artifact: Optional[Artifact] = None,
+        event: Optional[Event] = None,
         episode: Optional[Episode] = None,
         job: Optional[Job] = None,
+        artifacts: Optional[list[Artifact]] = None,
+        events: Optional[list[Event]] = None,
+        jobs: Optional[list[Job]] = None,
     ) -> None:
-        """Atomically persist episode (if new), artifact, event, and job in one transaction."""
+        """Atomically persist an episode, multiple raw/derived artifacts, events, and jobs in one single SQLite transaction."""
+        all_artifacts: list[Artifact] = []
+        if artifact is not None:
+            all_artifacts.append(artifact)
+        if artifacts:
+            for a in artifacts:
+                if not any(existing.id == a.id for existing in all_artifacts):
+                    all_artifacts.append(a)
+
+        all_events: list[Event] = []
+        if event is not None:
+            all_events.append(event)
+        if events:
+            for e in events:
+                if not any(existing.id == e.id for existing in all_events):
+                    all_events.append(e)
+
+        all_jobs: list[Job] = []
+        if job is not None:
+            all_jobs.append(job)
+        if jobs:
+            for j in jobs:
+                if not any(existing.id == j.id for existing in all_jobs):
+                    all_jobs.append(j)
+
         with self.db.transaction() as conn:
             if episode is not None:
                 conn.execute(
@@ -269,46 +296,48 @@ class Repository:
                     ),
                 )
 
-            conn.execute(
-                """
-                INSERT INTO artifacts (
-                    id, episode_id, artifact_type, is_raw, file_path,
-                    file_hash, mime_type, size_bytes, source_artifact_id,
-                    processor_name, processor_version, created_at
+            for art in all_artifacts:
+                conn.execute(
+                    """
+                    INSERT INTO artifacts (
+                        id, episode_id, artifact_type, is_raw, file_path,
+                        file_hash, mime_type, size_bytes, source_artifact_id,
+                        processor_name, processor_version, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        art.id,
+                        art.episode_id,
+                        art.artifact_type,
+                        1 if art.is_raw else 0,
+                        art.file_path,
+                        art.file_hash,
+                        art.mime_type,
+                        art.size_bytes,
+                        art.source_artifact_id,
+                        art.processor_name,
+                        art.processor_version,
+                        art.created_at,
+                    ),
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    artifact.id,
-                    artifact.episode_id,
-                    artifact.artifact_type,
-                    1 if artifact.is_raw else 0,
-                    artifact.file_path,
-                    artifact.file_hash,
-                    artifact.mime_type,
-                    artifact.size_bytes,
-                    artifact.source_artifact_id,
-                    artifact.processor_name,
-                    artifact.processor_version,
-                    artifact.created_at,
-                ),
-            )
 
-            conn.execute(
-                """
-                INSERT INTO events (id, episode_id, event_type, payload_json, created_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    event.id,
-                    event.episode_id,
-                    event.event_type,
-                    event.payload_json,
-                    event.created_at,
-                ),
-            )
+            for evt in all_events:
+                conn.execute(
+                    """
+                    INSERT INTO events (id, episode_id, event_type, payload_json, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        evt.id,
+                        evt.episode_id,
+                        evt.event_type,
+                        evt.payload_json,
+                        evt.created_at,
+                    ),
+                )
 
-            if job is not None:
+            for j in all_jobs:
                 conn.execute(
                     """
                     INSERT INTO jobs (
@@ -319,21 +348,21 @@ class Repository:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        job.id,
-                        job.job_type,
-                        job.episode_id,
-                        job.artifact_id,
-                        job.payload_json,
-                        job.status,
-                        job.attempts,
-                        job.max_attempts,
-                        job.error_message,
-                        job.worker_id,
-                        job.leased_by,
-                        job.leased_at,
-                        job.lease_expires_at,
-                        job.created_at,
-                        job.updated_at,
+                        j.id,
+                        j.job_type,
+                        j.episode_id,
+                        j.artifact_id,
+                        j.payload_json,
+                        j.status,
+                        j.attempts,
+                        j.max_attempts,
+                        j.error_message,
+                        j.worker_id,
+                        j.leased_by,
+                        j.leased_at,
+                        j.lease_expires_at,
+                        j.created_at,
+                        j.updated_at,
                     ),
                 )
 

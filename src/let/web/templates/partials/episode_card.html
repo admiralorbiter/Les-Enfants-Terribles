@@ -7,45 +7,165 @@
     {% set an_data = item.analysis_data if item is defined else analysis_data %}
     {% set job = item.latest_job if item is defined else latest_job %}
 
-    <div class="episode-header">
-        <div>
-            <a href="{{ url_for('main.episode_detail', episode_id=ep.id) }}" class="episode-title-link" id="title-display-{{ ep.id }}">
-                {{ ep.title }}
-            </a>
-            <div class="episode-meta">
+    {% set primary_audio = None %}
+    {% if arts %}
+        {% for a in arts %}
+            {% if a.artifact_type == 'audio' and not primary_audio %}
+                {% set primary_audio = a %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    <!-- Collapsed Card Header & Preview (Always Visible in Feed) -->
+    <div class="episode-card-header" onclick="handleCardHeaderClick('{{ ep.id }}', event)">
+        <div class="episode-header-top">
+            <div class="episode-title-group">
+                {% if primary_audio %}
+                <button type="button" class="btn-mini-play" id="mini-play-{{ ep.id }}" 
+                        onclick="toggleMiniAudioPlay('{{ primary_audio.id }}', '{{ ep.id }}', event)" 
+                        title="Quick Play / Pause Audio">
+                    <span id="mini-play-icon-{{ ep.id }}">▶</span>
+                </button>
+                {% endif %}
+                <a href="{{ url_for('main.episode_detail', episode_id=ep.id) }}" 
+                   class="episode-title-link" 
+                   id="title-display-{{ ep.id }}"
+                   onclick="event.stopPropagation()">
+                    {{ ep.title }}
+                </a>
+            </div>
+
+            <div class="episode-meta-controls">
                 <span class="tag domain-{{ ep.domain }}">{{ ep.domain }}</span>
                 <span class="tag">{{ ep.mode }}</span>
-                {% if ep.prediction %}
-                <span class="tag" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;" title="Pre-session prediction: {{ ep.prediction.prediction_text }}">⚡ {{ ep.prediction.target_concept or 'Calibration' }}</span>
-                {% endif %}
                 <span class="episode-timestamp">{{ ep.created_at[:16].replace('T', ' ') }} UTC</span>
+                <button type="button" class="btn-collapse-toggle" id="toggle-btn-{{ ep.id }}" 
+                        onclick="toggleEpisodeCollapse('{{ ep.id }}', event)" 
+                        title="Expand or collapse episode details">
+                    <span class="toggle-icon" id="toggle-icon-{{ ep.id }}">▼</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mini Audio Progress Bar (Active when mini-player is playing) -->
+        <div class="mini-audio-bar" id="mini-bar-{{ ep.id }}" style="display: none;">
+            <div class="mini-audio-progress" id="mini-progress-{{ ep.id }}"></div>
+        </div>
+
+        <!-- Pre-Session Prediction Hook -->
+        {% if ep.prediction %}
+        <div class="card-preview-prediction">
+            <span class="pred-icon">⚡</span>
+            <strong>{{ ep.prediction.effective_concept_name or ep.prediction.target_concept or 'Calibration' }}:</strong>
+            <span class="preview-pred-text">"{{ ep.prediction.prediction_text }}"</span>
+            <span class="tag tag-sm conf-{{ ep.prediction.confidence }}">{{ ep.prediction.confidence|upper }}</span>
+        </div>
+        {% endif %}
+
+        <!-- 1-Line Transcript Preview Hook -->
+        {% if t_data and t_data.text %}
+        <div class="card-preview-transcript">
+            💬 <span class="transcript-snippet">"{{ t_data.text[:200] }}{% if t_data.text|length > 200 %}...{% endif %}"</span>
+        </div>
+        {% endif %}
+
+        <!-- Epistemic Status Indicators Tray -->
+        <div class="card-status-tray">
+            <div class="status-tray-left">
+                {% if primary_audio %}
+                <span class="meta-pill" title="Raw primary capture size">🎙️ {{ (primary_audio.size_bytes / 1024)|round(1) }} KB</span>
+                {% endif %}
+
+                {% if t_data %}
+                <span class="meta-pill meta-ready" title="Transcription complete">✓ Transcript ({{ t_data.processor_version or 'Whisper' }})</span>
+                {% elif job and job.status in ['queued', 'running'] %}
+                <span class="meta-pill meta-running" title="Transcription in progress">● Transcribing...</span>
+                {% elif job and job.status == 'failed' %}
+                <span class="meta-pill meta-failed" title="Transcription failed">✗ Failed</span>
+                {% endif %}
+
+                {% if an_data and an_data.perturbations %}
+                <span class="meta-pill meta-perturb" title="{{ an_data.perturbations|length }} Liquid perturbation probes">❓ {{ an_data.perturbations|length }} Probes</span>
+                {% elif an_data and an_data.synthesis_text %}
+                <span class="meta-pill meta-synth" title="Mission Brief synthesis available">💡 Synthesis</span>
+                {% endif %}
+            </div>
+
+            <div class="status-tray-right">
+                <a href="{{ url_for('main.episode_detail', episode_id=ep.id) }}" 
+                   class="card-full-link" 
+                   onclick="event.stopPropagation()"
+                   title="Open dedicated focus workspace">
+                    Open Workspace ↗
+                </a>
             </div>
         </div>
     </div>
 
-    {% for art in arts %}
-        {% if art.artifact_type == 'audio' %}
-        <div class="audio-player-container">
-            <audio id="audio-player-{{ art.id }}" controls preload="none" src="{{ url_for('main.stream_media', artifact_id=art.id) }}">
-                Your browser does not support audio playback.
-            </audio>
-            <div class="artifact-footer">
-                <span>
-                    <strong class="raw-badge">RAW</strong> SHA-256: <code>{{ art.file_hash[:16] }}...</code>
-                </span>
-                <span>{{ (art.size_bytes / 1024)|round(1) }} KB</span>
+    <!-- Collapsible Deep Workspace Body (Hidden by default in feed) -->
+    <div class="episode-card-body" id="body-{{ ep.id }}" style="display: none;">
+        <!-- Pre-Session Prediction Full Details (if present) -->
+        {% if ep.prediction %}
+        {% set pred = ep.prediction %}
+        <div class="prediction-box" style="margin: 0.75rem 0 1rem 0; padding: 0.85rem 1rem; background: var(--bg-surface-raised); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--radius-sm);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem;">
+                <strong style="color: #f59e0b; font-size: 0.85rem;">
+                    ⚡ Pre-Session Prediction Snapshot
+                    {% if pred.effective_concept_name or pred.target_concept %}
+                    <span class="tag" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; margin-left: 0.4rem;">{{ pred.effective_concept_name or pred.target_concept }}</span>
+                    {% endif %}
+                </strong>
+                <span class="tag tag-sm">Confidence: {{ pred.confidence|upper }}</span>
+            </div>
+            <p style="font-size: 0.9rem; margin: 0.25rem 0; color: var(--text-primary);">
+                "{{ pred.prediction_text }}"
+            </p>
+            {% if pred.prediction_artifact_id %}
+            <div style="margin: 0.35rem 0;">
+                <audio controls preload="none" src="/media/{{ pred.prediction_artifact_id }}" style="height: 30px; width: 100%; max-width: 300px;"></audio>
+            </div>
+            {% endif %}
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">
+                Locked before session at {{ pred.created_at[:19].replace('T', ' ') }} UTC
             </div>
         </div>
         {% endif %}
-    {% endfor %}
 
-    <!-- Transcript Section -->
-    {% with episode=ep, transcript_art=t_art, transcript_data=t_data, latest_job=job %}
-        {% include "partials/transcript_view.html" %}
-    {% endwith %}
+        <!-- Audio Players -->
+        {% for art in arts %}
+            {% if art.artifact_type == 'audio' %}
+            <div class="audio-player-container">
+                <audio id="audio-player-{{ art.id }}" controls preload="none" src="{{ url_for('main.stream_media', artifact_id=art.id) }}">
+                    Your browser does not support audio playback.
+                </audio>
+                <div class="artifact-footer">
+                    <span>
+                        <strong class="raw-badge">RAW</strong> SHA-256: <code>{{ art.file_hash[:16] }}...</code>
+                    </span>
+                    <span>{{ (art.size_bytes / 1024)|round(1) }} KB</span>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
 
-    <!-- Analysis & Mission Brief Section -->
-    {% with episode=ep, analysis_art=an_art, analysis_data=an_data %}
-        {% include "partials/analysis_view.html" %}
-    {% endwith %}
+        <!-- Transcript Section -->
+        {% with episode=ep, transcript_art=t_art, transcript_data=t_data, latest_job=job %}
+            {% include "partials/transcript_view.html" %}
+        {% endwith %}
+
+        <!-- Analysis & Mission Brief Section -->
+        {% with episode=ep, analysis_art=an_art, analysis_data=an_data %}
+            {% include "partials/analysis_view.html" %}
+        {% endwith %}
+
+        <!-- Bottom Collapse & Focus Navigation Bar -->
+        <div class="card-bottom-actions">
+            <button type="button" class="btn-micro" onclick="toggleEpisodeCollapse('{{ ep.id }}', event)">
+                ▲ Collapse Episode
+            </button>
+            <a href="{{ url_for('main.episode_detail', episode_id=ep.id) }}" class="btn-micro">
+                Open Dedicated Focus Workspace ↗
+            </a>
+        </div>
+    </div>
 </article>

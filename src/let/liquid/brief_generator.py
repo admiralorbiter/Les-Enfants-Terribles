@@ -59,9 +59,13 @@ def generate_mission_brief(
     if episode.prediction:
         pred = episode.prediction
         voice_note_line = f"- **Prediction Voice Artifact:** `{pred.prediction_artifact_id}`\n" if pred.prediction_artifact_id else ""
+        from let.liquid.heuristics import get_concept_by_id
+        concept_obj = get_concept_by_id(pred.target_concept_id) if pred.target_concept_id else None
+        concept_label = concept_obj.term if concept_obj else (pred.target_concept or 'General')
+        concept_def = f"\n- **Concept Definition:** {concept_obj.definition}" if concept_obj and concept_obj.definition else ""
         prediction_section = f"""
 ### Immutable Pre-Session Prediction Snapshot
-- **Target Concept:** `{pred.target_concept or 'General'}`
+- **Target Concept:** `{concept_label}`{concept_def}
 - **Confidence:** `{pred.confidence.upper()}`
 - **Prediction Statement:** "{pred.prediction_text or '(Recorded as Spoken Voice Note)'}"
 {voice_note_line}*(Recorded at {pred.created_at[:19].replace('T', ' ')} UTC before session)*

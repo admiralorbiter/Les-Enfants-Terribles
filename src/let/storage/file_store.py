@@ -165,15 +165,26 @@ class FileStore:
 
     def write_capture_receipt(
         self,
-        relative_file_path: str,
+        relative_file_path: str | list[str],
         episode_id: str,
         metadata: dict,
+        raw_files: Optional[list[dict]] = None,
     ) -> Path:
-        """Write a disk recovery receipt if database persistence fails."""
+        """Write a disk recovery receipt if database persistence fails, tracking all raw files."""
         receipt_id = f"receipt_{uuid.uuid4().hex[:12]}.json"
         receipt_path = self.receipts_dir / receipt_id
+
+        if isinstance(relative_file_path, list):
+            rel_paths = relative_file_path
+            primary_rel = rel_paths[0] if rel_paths else ""
+        else:
+            primary_rel = relative_file_path
+            rel_paths = [relative_file_path] if relative_file_path else []
+
         payload = {
-            "relative_file_path": relative_file_path,
+            "relative_file_path": primary_rel,
+            "relative_file_paths": rel_paths,
+            "raw_files": raw_files or [],
             "episode_id": episode_id,
             "metadata": metadata,
         }

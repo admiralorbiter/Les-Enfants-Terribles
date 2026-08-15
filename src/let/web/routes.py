@@ -642,11 +642,13 @@ def capture_audio():
 
         prediction_text = request.form.get("prediction_text", "").strip()
         prediction_concept = request.form.get("prediction_concept", "").strip()
+        prediction_concept_id = request.form.get("prediction_concept_id", "").strip()
         prediction_confidence = request.form.get("prediction_confidence", "medium").strip().lower()
         if prediction_confidence not in ("low", "medium", "high"):
             prediction_confidence = "medium"
 
         pred_art_id = None
+        pred_stored = None
         if "prediction_audio" in request.files:
             pred_file = request.files["prediction_audio"]
             if pred_file and pred_file.filename:
@@ -670,12 +672,13 @@ def capture_audio():
         if prediction_text or pred_art_id:
             pred = PredictionData(
                 id=f"pred_{uuid.uuid4().hex[:8]}",
+                target_concept_id=prediction_concept_id if prediction_concept_id else None,
                 target_concept=prediction_concept if prediction_concept else None,
                 prediction_text=prediction_text or "(Spoken Voice Prediction)",
                 prediction_artifact_id=pred_art_id,
                 confidence=prediction_confidence,
             )
-            episode.set_prediction(pred)
+            episode.append_prediction(pred)
 
     # 2. Atomically save raw audio to immutable store FIRST
     stored = file_store.save_raw_audio(
@@ -720,19 +723,47 @@ def capture_audio():
         status="queued",
     )
 
-    # 3. Commit entire capture bundle in a SINGLE atomic database transaction
+    # 3. Commit entire capture bundle (primary audio + prediction audio) in a SINGLE atomic database transaction
     try:
+        artifacts_to_commit = [artifact]
+        if pred_art is not None:
+            artifacts_to_commit.append(pred_art)
+
         repo.create_capture_bundle(
-            artifact=artifact,
+            artifacts=artifacts_to_commit,
             event=event,
             episode=episode if is_new_episode else None,
             job=job,
         )
-        if pred_art:
-            repo.create_artifact(pred_art)
     except Exception as exc:
+        rel_paths = [stored.relative_path]
+        raw_files_info = [
+            {
+                "artifact_id": artifact_id,
+                "relative_path": stored.relative_path,
+                "artifact_type": "audio",
+                "role": "primary_capture",
+                "file_hash": stored.file_hash,
+                "mime_type": mime_type,
+                "size_bytes": stored.size_bytes,
+            }
+        ]
+        if pred_art is not None and pred_stored is not None:
+            rel_paths.append(pred_stored.relative_path)
+            raw_files_info.append(
+                {
+                    "artifact_id": pred_art.id,
+                    "relative_path": pred_stored.relative_path,
+                    "artifact_type": "audio",
+                    "role": "prediction_audio",
+                    "file_hash": pred_stored.file_hash,
+                    "mime_type": pred_art.mime_type,
+                    "size_bytes": pred_stored.size_bytes,
+                }
+            )
+
         file_store.write_capture_receipt(
-            relative_file_path=stored.relative_path,
+            relative_file_path=rel_paths,
             episode_id=episode_id,
             metadata={
                 "title": title or "Recovered Capture",
@@ -744,6 +775,7 @@ def capture_audio():
                 "size_bytes": stored.size_bytes,
                 "error": str(exc),
             },
+            raw_files=raw_files_info,
         )
         return jsonify({"error": f"Database commit failed, recovery receipt saved: {exc}"}), 500
 
@@ -876,6 +908,7 @@ def set_episode_prediction(episode_id: str):
 
     prediction_text = data.get("prediction_text", "").strip()
     target_concept = data.get("target_concept", "").strip()
+    target_concept_id = data.get("target_concept_id", "").strip()
     confidence = data.get("confidence", "medium").strip().lower()
     if confidence not in ("low", "medium", "high"):
         confidence = "medium"
@@ -907,12 +940,13 @@ def set_episode_prediction(episode_id: str):
 
     pred = PredictionData(
         id=f"pred_{uuid.uuid4().hex[:8]}",
+        target_concept_id=target_concept_id if target_concept_id else None,
         target_concept=target_concept if target_concept else None,
         prediction_text=prediction_text or "(Spoken Voice Prediction)",
         prediction_artifact_id=pred_art_id,
         confidence=confidence,
     )
-    episode.set_prediction(pred)
+    episode.append_prediction(pred)
     repo.update_episode(episode)
 
     repo.create_event(
@@ -935,4 +969,43 @@ def set_episode_prediction(episode_id: str):
         )
 
     return jsonify({"status": "success", "prediction": pred.model_dump()})
+
+
+@bp.route("/api/telemetry/concept_exposure", methods=["POST"])
+def log_concept_exposure():
+    """Log passive or active domain concept exposure telemetry."""
+    repo = _get_repo()
+    data = request.get_json(silent=True) or request.form
+    concept_id = data.get("concept_id", "").strip()
+    if not concept_id:
+        return jsonify({"error": "concept_id is required"}), 400
+
+    episode_id = data.get("episode_id", "").strip()
+    if episode_id:
+        ep = repo.get_episode(episode_id)
+        if not ep:
+            return jsonify({"status": "ignored", "reason": "Episode does not exist yet"}), 200
+
+        evt = Event(
+            id=f"evt_{uuid.uuid4().hex[:12]}",
+            episode_id=episode_id,
+            event_type="concept_exposed",
+            payload_json=json.dumps(
+                {
+                    "concept_id": concept_id,
+                    "concept_term": data.get("concept_term"),
+                    "domain": data.get("domain", "general"),
+                    "protocol_run_id": data.get("protocol_run_id"),
+                    "phase": data.get("phase", "before_activity"),
+                    "presentation": data.get("presentation", "chip"),
+                    "user_requested": bool(data.get("user_requested", False)),
+                    "context": data.get("context", {}),
+                    "exposed_at": utc_now_iso(),
+                }
+            ),
+        )
+        repo.create_event(evt)
+        return jsonify({"status": "logged", "event_id": evt.id}), 201
+
+    return jsonify({"status": "logged_client_side", "message": "Pre-capture exposure recorded"}), 200
 

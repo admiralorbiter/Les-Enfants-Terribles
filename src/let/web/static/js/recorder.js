@@ -118,12 +118,16 @@ async function uploadRecording(blob, mimeType, episodeId = null) {
     } else {
         const predText = document.getElementById('prediction-text');
         const predConcept = document.getElementById('prediction-concept');
+        const predConceptId = document.getElementById('prediction-concept-id');
         const predConf = document.getElementById('prediction-confidence');
         if (predText && predText.value.trim()) {
             formData.append('prediction_text', predText.value.trim());
         }
         if (predConcept && predConcept.value.trim()) {
             formData.append('prediction_concept', predConcept.value.trim());
+        }
+        if (predConceptId && predConceptId.value.trim()) {
+            formData.append('prediction_concept_id', predConceptId.value.trim());
         }
         if (predConf && predConf.value.trim()) {
             formData.append('prediction_confidence', predConf.value.trim());
@@ -546,11 +550,17 @@ function togglePredictionCard() {
     }
 }
 
-function selectConceptChip(chipText) {
+function selectConceptChip(chipText, conceptId = null) {
     const conceptInput = document.getElementById('prediction-concept');
+    const conceptIdInput = document.getElementById('prediction-concept-id');
     const textInput = document.getElementById('prediction-text');
+    const domainInput = document.getElementById('episode-domain');
+
     if (conceptInput) {
         conceptInput.value = chipText;
+    }
+    if (conceptIdInput) {
+        conceptIdInput.value = conceptId || '';
     }
     // Highlight active chip
     document.querySelectorAll('.concept-chip').forEach(el => {
@@ -564,6 +574,24 @@ function selectConceptChip(chipText) {
         textInput.focus();
     }
     savePredictionDraft();
+
+    // Log concept exposure telemetry (LET-D-028)
+    try {
+        const payload = {
+            concept_id: conceptId || chipText.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+            concept_term: chipText,
+            domain: domainInput ? domainInput.value : 'general',
+            phase: 'before_activity',
+            presentation: 'chip',
+            user_requested: true,
+            context: { view: 'recorder', action: 'chip_click' }
+        };
+        fetch('/api/telemetry/concept_exposure', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(err => console.debug('Telemetry deferred:', err));
+    } catch (e) {}
 }
 
 function setConfidence(level) {
@@ -582,8 +610,10 @@ function setConfidence(level) {
 function clearPrediction() {
     const textInput = document.getElementById('prediction-text');
     const conceptInput = document.getElementById('prediction-concept');
+    const conceptIdInput = document.getElementById('prediction-concept-id');
     if (textInput) textInput.value = '';
     if (conceptInput) conceptInput.value = '';
+    if (conceptIdInput) conceptIdInput.value = '';
     document.querySelectorAll('.concept-chip').forEach(el => el.classList.remove('active'));
     setConfidence('medium');
     clearVoicePrediction();
@@ -972,6 +1002,115 @@ function initPredictionDraftListeners() {
             savePredictionDraft();
         });
     }
+}
+
+// ---------------- Episode Accordion & Mini-Audio Preview Controller ----------------
+
+let currentlyPlayingMiniAudio = null;
+let currentlyPlayingEpisodeId = null;
+
+function handleCardHeaderClick(episodeId, event) {
+    // If user clicked an interactive link, button, or input inside the header, don't toggle collapse
+    if (event.target.closest('a') || event.target.closest('button') || event.target.closest('input')) {
+        return;
+    }
+    toggleEpisodeCollapse(episodeId, event);
+}
+
+function toggleEpisodeCollapse(episodeId, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    const card = document.getElementById(`episode-${episodeId}`);
+    const body = document.getElementById(`body-${episodeId}`);
+    if (!card || !body) return;
+
+    const isExpanded = card.classList.contains('is-expanded');
+    if (isExpanded) {
+        card.classList.remove('is-expanded');
+        body.style.display = 'none';
+    } else {
+        card.classList.add('is-expanded');
+        body.style.display = 'block';
+    }
+}
+
+function collapseAllEpisodes() {
+    document.querySelectorAll('.episode-card').forEach(card => {
+        card.classList.remove('is-expanded');
+        const body = card.querySelector('.episode-card-body');
+        if (body) body.style.display = 'none';
+    });
+}
+
+function expandAllEpisodes() {
+    document.querySelectorAll('.episode-card').forEach(card => {
+        card.classList.add('is-expanded');
+        const body = card.querySelector('.episode-card-body');
+        if (body) body.style.display = 'block';
+    });
+}
+
+function toggleMiniAudioPlay(artifactId, episodeId, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    const fullPlayer = document.getElementById(`audio-player-${artifactId}`);
+    const playBtn = document.getElementById(`mini-play-${episodeId}`);
+    const playIcon = document.getElementById(`mini-play-icon-${episodeId}`);
+    const miniBar = document.getElementById(`mini-bar-${episodeId}`);
+    const miniProgress = document.getElementById(`mini-progress-${episodeId}`);
+
+    if (!fullPlayer) return;
+
+    // If clicking on the currently playing mini audio, toggle pause
+    if (currentlyPlayingMiniAudio === fullPlayer && !fullPlayer.paused) {
+        fullPlayer.pause();
+        if (playIcon) playIcon.textContent = '▶';
+        if (playBtn) playBtn.classList.remove('playing');
+        return;
+    }
+
+    // If another player was playing, pause it first
+    if (currentlyPlayingMiniAudio && currentlyPlayingMiniAudio !== fullPlayer) {
+        currentlyPlayingMiniAudio.pause();
+        if (currentlyPlayingEpisodeId) {
+            const oldIcon = document.getElementById(`mini-play-icon-${currentlyPlayingEpisodeId}`);
+            const oldBtn = document.getElementById(`mini-play-${currentlyPlayingEpisodeId}`);
+            if (oldIcon) oldIcon.textContent = '▶';
+            if (oldBtn) oldBtn.classList.remove('playing');
+        }
+    }
+
+    currentlyPlayingMiniAudio = fullPlayer;
+    currentlyPlayingEpisodeId = episodeId;
+
+    if (miniBar) miniBar.style.display = 'block';
+
+    fullPlayer.ontimeupdate = () => {
+        if (fullPlayer.duration && miniProgress) {
+            const pct = (fullPlayer.currentTime / fullPlayer.duration) * 100;
+            miniProgress.style.width = `${pct}%`;
+        }
+    };
+
+    fullPlayer.onended = () => {
+        if (playIcon) playIcon.textContent = '▶';
+        if (playBtn) playBtn.classList.remove('playing');
+        if (miniProgress) miniProgress.style.width = '0%';
+        if (miniBar) miniBar.style.display = 'none';
+        currentlyPlayingMiniAudio = null;
+        currentlyPlayingEpisodeId = null;
+    };
+
+    fullPlayer.play().then(() => {
+        if (playIcon) playIcon.textContent = '⏸';
+        if (playBtn) playBtn.classList.add('playing');
+    }).catch(err => {
+        console.error('Mini audio play error:', err);
+        if (playIcon) playIcon.textContent = '▶';
+        if (playBtn) playBtn.classList.remove('playing');
+    });
 }
 
 

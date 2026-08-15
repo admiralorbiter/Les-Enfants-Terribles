@@ -190,95 +190,334 @@ DOMAIN_HEURISTIC_PROBES: dict[str, dict[str, list[str]]] = {
 }
 
 
+from let.models.entities import AnalysisData, DomainConcept, Episode, PerturbationItem
+
+DOMAIN_CONCEPTS_REGISTRY: dict[str, DomainConcept] = {
+    # Piano
+    "piano.tempo_rushing": DomainConcept(
+        id="piano.tempo_rushing",
+        domain="piano",
+        term="Tempo / Rushing",
+        icon="⏱️",
+        definition="Subconscious rhythmic acceleration driven by motor tension or anticipation of upcoming difficult passages.",
+        aliases=["speeding up", "rushing", "pulse compression"],
+    ),
+    "piano.tension_posture": DomainConcept(
+        id="piano.tension_posture",
+        domain="piano",
+        term="Tension / Posture",
+        icon="🦾",
+        definition="Accumulation of muscular stiffness in wrist, forearm, or shoulders preventing natural arm-weight transfer.",
+        aliases=["wrist lock", "arm strain", "stiffness"],
+    ),
+    "piano.memory_fingering": DomainConcept(
+        id="piano.memory_fingering",
+        domain="piano",
+        term="Memory / Fingering",
+        icon="🧠",
+        definition="Consistent finger choreography across repetitions to ensure mechanical reliability under performance pressure.",
+        aliases=["fingering consistency", "motor memory"],
+    ),
+    "piano.finger_articulation": DomainConcept(
+        id="piano.finger_articulation",
+        domain="piano",
+        term="Finger Articulation & Legato",
+        icon="🖐️",
+        definition="Connecting melodic notes through independent finger articulation rather than relying on sustain pedal.",
+        aliases=["finger legato", "clean articulation", "finger independence"],
+    ),
+    "piano.dynamics_voicing": DomainConcept(
+        id="piano.dynamics_voicing",
+        domain="piano",
+        term="Dynamics / Voicing",
+        icon="🎨",
+        definition="Balancing the relative volume of polyphonic layers to project the melodic line over accompaniment.",
+        aliases=["voicing", "balance", "dynamic contrast"],
+    ),
+    "piano.damper_pedal": DomainConcept(
+        id="piano.damper_pedal",
+        domain="piano",
+        term="Damper Pedal Bleed",
+        icon="🦶",
+        definition="Holding sustain pedal across harmonic chord shifts, causing muddy acoustic resonance.",
+        aliases=["pedal blur", "sustain bleed", "dirty pedal"],
+    ),
+    "piano.arm_weight": DomainConcept(
+        id="piano.arm_weight",
+        domain="piano",
+        term="Arm-Weight Drop",
+        icon="🎹",
+        definition="Using natural arm gravity to generate deep tone without forearm or wrist strain.",
+        aliases=["gravity drop", "relaxed weight"],
+    ),
+    "piano.rubato": DomainConcept(
+        id="piano.rubato",
+        domain="piano",
+        term="Rubato",
+        icon="🌊",
+        definition="Expressive rhythmic elasticity that stretches and compresses time without losing the underlying pulse.",
+        aliases=["tempo flexibility", "elastic pulse"],
+    ),
+    "piano.thumb_under": DomainConcept(
+        id="piano.thumb_under",
+        domain="piano",
+        term="Thumb-Under Rotation",
+        icon="🔄",
+        definition="Pivoting the wrist and forearm smoothly to tuck the thumb during scale or arpeggio runs.",
+        aliases=["thumb pivot", "arpeggio pass"],
+    ),
+
+    # Call of Duty
+    "cod.centering": DomainConcept(
+        id="cod.centering",
+        domain="cod",
+        term="Centering / Aim",
+        icon="🎯",
+        definition="Pre-aligning crosshairs at head/chest height where enemies will appear to minimize reaction micro-adjustments.",
+        aliases=["crosshair placement", "pre-aim", "elevation tracking"],
+    ),
+    "cod.sprinting_pacing": DomainConcept(
+        id="cod.sprinting_pacing",
+        domain="cod",
+        term="Sprinting / Pacing",
+        icon="🏃",
+        definition="Managing sprint-to-fire delays by transitioning to walking or pre-aiming before entering engagement zones.",
+        aliases=["pacing", "sprint-out delay", "tactical sprint control"],
+    ),
+    "cod.rotation_timing": DomainConcept(
+        id="cod.rotation_timing",
+        domain="cod",
+        term="Rotation Timing & Spawns",
+        icon="🗺️",
+        definition="Anticipating objective shifts early to secure favorable spawn anchors before enemies collapse.",
+        aliases=["spawn rotation", "early rotation", "map control"],
+    ),
+    "cod.patience_tilt": DomainConcept(
+        id="cod.patience_tilt",
+        domain="cod",
+        term="Patience / Tilt",
+        icon="🧘",
+        definition="Maintaining emotional composure and tactical discipline after losing consecutive gunfights.",
+        aliases=["composure", "tilt control", "anti-panic"],
+    ),
+    "cod.cover_anchor": DomainConcept(
+        id="cod.cover_anchor",
+        domain="cod",
+        term="Cover / Anchor",
+        icon="🛡️",
+        definition="Holding strategic perimeter points and maintaining hard shoulder cover without over-exposing hitbox.",
+        aliases=["anchor positioning", "head glitch", "cover discipline"],
+    ),
+    "cod.ego_challenging": DomainConcept(
+        id="cod.ego_challenging",
+        domain="cod",
+        term="Ego-Challenging",
+        icon="⚔️",
+        definition="Re-peeking or contesting gunfights at a positional, health, or weapon range disadvantage.",
+        aliases=["re-peeking", "stubborn challenge", "over-challenging"],
+    ),
+
+    # Programming
+    "programming.state_invariants": DomainConcept(
+        id="programming.state_invariants",
+        domain="programming",
+        term="State Invariants",
+        icon="🔒",
+        definition="Structural conditions that must remain valid across all state transitions and async boundaries.",
+        aliases=["data invariant", "system integrity", "consistency"],
+    ),
+    "programming.concurrency_race": DomainConcept(
+        id="programming.concurrency_race",
+        domain="programming",
+        term="Concurrency / Race",
+        icon="⚡",
+        definition="Synchronizing asynchronous tasks and database operations to eliminate race conditions and deadlocks.",
+        aliases=["race condition", "lease safety", "lock contention"],
+    ),
+    "programming.layer_boundary": DomainConcept(
+        id="programming.layer_boundary",
+        domain="programming",
+        term="Layer Boundary",
+        icon="🧩",
+        definition="Preserving clean separation between presentation, business logic, and persistent storage layers.",
+        aliases=["abstraction boundary", "separation of concerns"],
+    ),
+    "programming.edge_cases": DomainConcept(
+        id="programming.edge_cases",
+        domain="programming",
+        term="Edge Cases",
+        icon="🧪",
+        definition="Anticipating zero-state, boundary condition, and crash recovery behaviors before implementation.",
+        aliases=["boundary testing", "crash resilience", "fault tolerance"],
+    ),
+    "programming.productive_friction": DomainConcept(
+        id="programming.productive_friction",
+        domain="programming",
+        term="Productive Friction",
+        icon="🛠️",
+        definition="Cognitive resistance that deepens reflection, learning, or comprehension without operational clerical burden.",
+        aliases=["epistemic effort", "active recall"],
+    ),
+
+    # Research
+    "research.falsification_test": DomainConcept(
+        id="research.falsification_test",
+        domain="research",
+        term="Falsification Test",
+        icon="🔬",
+        definition="The specific, observable empirical evidence that would decisively disprove your working hypothesis.",
+        aliases=["falsification threshold", "null hypothesis", "discriminating test"],
+    ),
+    "research.underlying_mechanism": DomainConcept(
+        id="research.underlying_mechanism",
+        domain="research",
+        term="Underlying Mechanism",
+        icon="📐",
+        definition="The step-by-step physical or logical causal process that produces observed effects.",
+        aliases=["causal mechanism", "first principles"],
+    ),
+    "research.causal_direction": DomainConcept(
+        id="research.causal_direction",
+        domain="research",
+        term="Causal Direction",
+        icon="🔍",
+        definition="Distinguishing correlation from causation and determining whether intervention produces effect.",
+        aliases=["causality", "epistemic separation"],
+    ),
+    "research.hidden_axiom": DomainConcept(
+        id="research.hidden_axiom",
+        domain="research",
+        term="Hidden Axiom",
+        icon="🧱",
+        definition="An unstated foundational assumption being treated as fact that may actually be contingent.",
+        aliases=["implicit assumption", "unexamined prior"],
+    ),
+    "research.adjacent_metaphor": DomainConcept(
+        id="research.adjacent_metaphor",
+        domain="research",
+        term="Adjacent Metaphor",
+        icon="💡",
+        definition="Borrowing explanatory models from neighboring scientific disciplines to illuminate hidden structures.",
+        aliases=["cross-domain transfer", "analogical reasoning"],
+    ),
+
+    # Movie
+    "movie.visual_composition": DomainConcept(
+        id="movie.visual_composition",
+        domain="movie",
+        term="Visual Composition",
+        icon="🎬",
+        definition="Analyzing scene framing, geometric alignment, lighting contrast, and spatial relationships.",
+        aliases=["formalist framing", "cinematography", "blocking"],
+    ),
+    "movie.tone_silence": DomainConcept(
+        id="movie.tone_silence",
+        domain="movie",
+        term="Tone & Silence",
+        icon="🤫",
+        definition="Using acoustic absence, pacing deceleration, and ambient resonance to generate dramatic weight.",
+        aliases=["diegetic silence", "negative space"],
+    ),
+    "movie.character_choice": DomainConcept(
+        id="movie.character_choice",
+        domain="movie",
+        term="Character Choice",
+        icon="🎭",
+        definition="Evaluating whether protagonist decisions emerge earned from psychological motives or plot contrivance.",
+        aliases=["agency", "dramatic necessity"],
+    ),
+    "movie.acoustic_pacing": DomainConcept(
+        id="movie.acoustic_pacing",
+        domain="movie",
+        term="Acoustic Pacing",
+        icon="🎼",
+        definition="The interplay between sound design, diegetic noise, and external score in modulating narrative rhythm.",
+        aliases=["sound design", "diegetic sound"],
+    ),
+    "movie.thematic_premise": DomainConcept(
+        id="movie.thematic_premise",
+        domain="movie",
+        term="Thematic Premise",
+        icon="🏛️",
+        definition="The underlying philosophical or ethical argument tested by the film's conflict.",
+        aliases=["moral argument", "resonance drift"],
+    ),
+
+    # General
+    "general.core_decision": DomainConcept(
+        id="general.core_decision",
+        domain="general",
+        term="Core Decision",
+        icon="🎯",
+        definition="The pivotal fork in a workflow or habit where intentional choice replaces default drift.",
+        aliases=["decision point", "commitment"],
+    ),
+    "general.point_of_friction": DomainConcept(
+        id="general.point_of_friction",
+        domain="general",
+        term="Point of Friction",
+        icon="⚡",
+        definition="The exact juncture where resistance, confusion, or hesitation interrupts flow.",
+        aliases=["operational bottleneck", "cognitive friction"],
+    ),
+    "general.tacit_assumption": DomainConcept(
+        id="general.tacit_assumption",
+        domain="general",
+        term="Tacit Assumption",
+        icon="🧭",
+        definition="An automatic premise guiding action that has not been explicitly examined.",
+        aliases=["unconscious bias", "default prior"],
+    ),
+    "general.recurring_pattern": DomainConcept(
+        id="general.recurring_pattern",
+        domain="general",
+        term="Recurring Pattern",
+        icon="🔁",
+        definition="A behavioral or structural theme observed across multiple separate episodes.",
+        aliases=["longitudinal pattern", "habitual cycle"],
+    ),
+    "general.surprising_insight": DomainConcept(
+        id="general.surprising_insight",
+        domain="general",
+        term="Surprising Insight",
+        icon="✨",
+        definition="An unexpected realization that contradicts initial expectations or intuitive estimates.",
+        aliases=["epistemic surprise", "calibration discrepancy"],
+    ),
+}
+
+
 DOMAIN_CONCEPT_PALETTES: dict[str, list[str]] = {
-    "piano": [
-        "⏱️ Tempo / Rushing",
-        "🦾 Tension / Posture",
-        "🧠 Memory / Fingering",
-        "🖐️ Finger Articulation",
-        "🎨 Dynamics / Voicing",
-        "🦶 Damper Pedal",
-    ],
-    "cod": [
-        "🎯 Centering / Aim",
-        "🏃 Sprinting / Pacing",
-        "🗺️ Rotation Timing",
-        "🧘 Patience / Tilt",
-        "🛡️ Cover / Anchor",
-        "⚔️ Ego-Challenging",
-    ],
-    "programming": [
-        "🔒 State Invariants",
-        "⚡ Concurrency / Race",
-        "🧩 Layer Boundary",
-        "🧪 Edge Cases",
-        "🛠️ Ergonomics / Friction",
-    ],
-    "research": [
-        "🔬 Falsification Test",
-        "📐 Underlying Mechanism",
-        "🔍 Causal Direction",
-        "🧱 Hidden Axiom",
-        "💡 Adjacent Metaphor",
-    ],
-    "movie": [
-        "🎬 Visual Composition",
-        "🤫 Tone & Silence",
-        "🎭 Character Choice",
-        "🎼 Acoustic Pacing",
-        "🏛️ Thematic Premise",
-    ],
-    "general": [
-        "🎯 Core Decision",
-        "⚡ Point of Friction",
-        "🧭 Tacit Assumption",
-        "🔁 Recurring Pattern",
-        "✨ Surprising Insight",
-    ],
+    domain: [c.display_label for c in DOMAIN_CONCEPTS_REGISTRY.values() if c.domain == domain]
+    for domain in ["piano", "cod", "programming", "research", "movie", "general"]
 }
 
 DOMAIN_CONCEPT_GLOSSARY: dict[str, dict[str, str]] = {
-    "piano": {
-        "Damper Pedal Bleed": "Holding the sustain pedal through harmonic chord shifts, creating muddy resonance.",
-        "Finger Legato": "Connecting melody notes smoothly with finger independence rather than masking gaps with pedal.",
-        "Arm-Weight Drop": "Using natural arm gravity to generate deep tone without forearm or wrist strain.",
-        "Rubato": "Expressive rhythmic elasticity that speeds up or slows down without losing the underlying pulse.",
-        "Thumb-Under Rotation": "Pivoting the wrist and forearm smoothly to tuck the thumb during scale or arpeggio runs.",
-    },
-    "cod": {
-        "Centering": "Keeping crosshairs at head/chest height where enemies will appear to minimize aiming adjustment.",
-        "Ego-Challenging": "Re-peeking or contesting a gunfight while at low health or positional disadvantage.",
-        "Anchor Positioning": "Holding a strategic perimeter point to control where your team respawns on objective rotations.",
-        "Pre-Aim Window": "Aiming down sights at a corner before clearing it to win the sprint-to-fire timing battle.",
-        "Spawn Rotation": "Anticipating the next objective location and establishing early map control before spawns flip.",
-    },
-    "programming": {
-        "State Invariant": "A condition that must always hold true for a system to remain valid under all transitions.",
-        "Productive Friction": "Cognitive resistance that deepens reflection, learning, or comprehension without clerical burden.",
-        "Idempotency": "An operation that produces the exact same outcome whether executed once or repeatedly.",
-        "Lineage Provenance": "Cryptographic and structural tracking showing precisely which source artifact generated a derived output.",
-    },
-    "research": {
-        "Falsification Threshold": "The specific empirical evidence that would decisively disprove your working hypothesis.",
-        "Epistemic Separation": "Maintaining strict distinction between raw observations, transcripts, inferences, and interventions.",
-        "Causal Mechanism": "The step-by-step physical or logical process that produces the observed correlation.",
-    },
-    "movie": {
-        "Formalist Framing": "Analyzing a scene primarily by its visual geometry, color palette, and editing rhythm.",
-        "Diegetic Sound": "Acoustic elements that originate from within the film's fictional world rather than the external score.",
-        "Resonance Drift": "How your emotional interpretation of a film evolves in the days following the initial viewing.",
-    },
-    "general": {
-        "Metacognitive Calibration": "The accuracy of comparing your pre-action prediction against objective post-action evidence.",
-        "Operational Friction": "Clerical, configuration, or interface hassle that distracts from productive thought.",
-    },
+    domain: {c.term: c.definition for c in DOMAIN_CONCEPTS_REGISTRY.values() if c.domain == domain}
+    for domain in ["piano", "cod", "programming", "research", "movie", "general"]
 }
+
+
+def get_concept_by_id(concept_id: str) -> Optional[DomainConcept]:
+    """Retrieve a DomainConcept by its canonical stable ID."""
+    return DOMAIN_CONCEPTS_REGISTRY.get(concept_id)
 
 
 def get_domain_concepts(domain: str) -> list[dict[str, str]]:
     """Retrieve structured domain glossary concepts for tooltips and vocabulary discovery."""
-    glossary = DOMAIN_CONCEPT_GLOSSARY.get(domain, DOMAIN_CONCEPT_GLOSSARY["general"])
-    return [{"term": term, "definition": desc} for term, desc in glossary.items()]
+    concepts = [c for c in DOMAIN_CONCEPTS_REGISTRY.values() if c.domain == domain]
+    if not concepts:
+        concepts = [c for c in DOMAIN_CONCEPTS_REGISTRY.values() if c.domain == "general"]
+    return [
+        {
+            "id": c.id,
+            "term": c.term,
+            "definition": c.definition,
+            "icon": c.icon or "",
+            "display_label": c.display_label,
+        }
+        for c in concepts
+    ]
 
 
 def generate_local_perturbations(episode: Episode, transcript_text: Optional[str] = None) -> list[PerturbationItem]:
@@ -370,19 +609,32 @@ def generate_local_perturbations(episode: Episode, transcript_text: Optional[str
                 )
             )
 
-    # 4. Calibration Prediction Probes (Only if prediction has genuine text, never placeholder!)
+    # 4. Calibration Prediction Probes
     if episode.prediction:
         pred = episode.prediction
         pred_text = pred.prediction_text.strip() if pred.prediction_text else ""
         has_real_prediction = bool(pred_text and pred_text != "(Spoken Voice Prediction)")
-        
+        concept_name = pred.target_concept or episode.domain.capitalize()
+        confidence = pred.confidence.capitalize()
+
         if has_real_prediction:
-            concept = pred.target_concept or episode.domain.capitalize()
-            confidence = pred.confidence
             q_cal = (
-                f"You predicted '{pred_text}' ({confidence.capitalize()} confidence on {concept}). "
+                f"You predicted '{pred_text}' ({confidence} confidence on {concept_name}). "
                 f"Did the actual outcome confirm this expectation, or did friction emerge elsewhere?"
             )
+            items.insert(0, PerturbationItem(id=f"pert_cal_{uuid.uuid4().hex[:8]}", question_text=q_cal))
+        elif pred.prediction_artifact_id or pred.target_concept_id or pred.target_concept:
+            concept_obj = get_concept_by_id(pred.target_concept_id) if pred.target_concept_id else None
+            if concept_obj and concept_obj.definition:
+                q_cal = (
+                    f"You set a pre-session focus on {concept_name} ({confidence} confidence): {concept_obj.definition} "
+                    f"How closely did your execution align with this target mechanic?"
+                )
+            else:
+                q_cal = (
+                    f"You set a pre-session focus on {concept_name} ({confidence} confidence). "
+                    f"Did the actual outcome confirm your intention, or did unexpected friction dominate?"
+                )
             items.insert(0, PerturbationItem(id=f"pert_cal_{uuid.uuid4().hex[:8]}", question_text=q_cal))
 
     # If fewer than 2 items generated, fill with domain/mode heuristics
@@ -402,8 +654,16 @@ def create_local_heuristic_analysis(episode: Episode, transcript_text: Optional[
     """Construct an instant offline AnalysisData packet populated with local heuristic probes and vocabulary concepts."""
     items = generate_local_perturbations(episode, transcript_text)
     concepts_raw = get_domain_concepts(episode.domain)
-    from let.models.entities import DomainConcept
-    domain_concepts = [DomainConcept(term=c["term"], definition=c["definition"]) for c in concepts_raw]
+    domain_concepts = [
+        DomainConcept(
+            id=c.get("id", ""),
+            term=c["term"],
+            definition=c["definition"],
+            icon=c.get("icon"),
+            domain=episode.domain,
+        )
+        for c in concepts_raw
+    ]
 
     discrepancy_summary = None
     if episode.prediction:

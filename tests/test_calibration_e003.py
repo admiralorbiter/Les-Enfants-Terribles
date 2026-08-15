@@ -74,8 +74,9 @@ def test_repository_crud_with_prediction(repo):
     assert fetched.prediction.target_concept == "Centering / Aim"
     assert fetched.prediction.confidence == "medium"
     assert "centering" in fetched.prediction.prediction_text
+    assert len(fetched.predictions) == 1
 
-    # Update prediction
+    # Append revised prediction (FIX-01)
     pred2 = PredictionData(
         id="pred_repo_2",
         target_concept="Rotation Timing",
@@ -88,6 +89,10 @@ def test_repository_crud_with_prediction(repo):
     refetched = repo.get_episode("ep_repo_pred")
     assert refetched.prediction.target_concept == "Rotation Timing"
     assert refetched.prediction.confidence == "low"
+    assert len(refetched.predictions) == 2
+    assert refetched.predictions[0].id == "pred_repo_1"
+    assert refetched.predictions[1].id == "pred_repo_2"
+    assert refetched.predictions[1].supersedes_prediction_id == "pred_repo_1"
 
 
 def test_domain_concept_palettes_and_glossary():
@@ -104,6 +109,7 @@ def test_domain_concept_palettes_and_glossary():
         for c in concepts:
             assert "term" in c and len(c["term"]) > 0
             assert "definition" in c and len(c["definition"]) > 0
+            assert "id" in c and len(c["id"]) > 0
 
 
 def test_calibration_discrepancy_heuristic_generation():
@@ -139,6 +145,7 @@ def test_mission_brief_includes_prediction_snapshot():
     """Verify that Mission Brief Markdown export includes the immutable prediction snapshot and calibration directives."""
     pred = PredictionData(
         id="pred_mb",
+        target_concept_id="programming.state_invariants",
         target_concept="State Invariants",
         prediction_text="Refactoring SQLite transaction will break lease renewal edge case.",
         confidence="high",
@@ -159,6 +166,7 @@ def test_mission_brief_includes_prediction_snapshot():
     assert "Immutable Pre-Session Prediction Snapshot" in brief
     assert "Refactoring SQLite transaction will break lease renewal" in brief
     assert "Calibration & Discrepancy Directive" in brief
+    assert "Structural conditions that must remain valid" in brief
 
 
 def test_import_analysis_attaches_domain_concepts_and_discrepancy(test_config, repo, file_store):
@@ -199,7 +207,7 @@ The ending formal geometry and lighting framed the dilemma beautifully.
     assert analysis.prediction_discrepancy is not None
     assert "Expected the ending sequence to feel unearned" in analysis.prediction_discrepancy
     assert len(analysis.domain_concepts) >= 2
-    assert any("Framing" in c.term or "Sound" in c.term for c in analysis.domain_concepts)
+    assert any("Composition" in c.term or "Pacing" in c.term or "Tone" in c.term for c in analysis.domain_concepts)
 
 
 def test_api_capture_with_pre_prediction(client, repo):
@@ -214,6 +222,7 @@ def test_api_capture_with_pre_prediction(client, repo):
         "mode": "improve",
         "prediction_text": "I predict bar 20 will rush due to awkward fingering.",
         "prediction_concept": "⏱️ Tempo / Rushing",
+        "prediction_concept_id": "piano.tempo_rushing",
         "prediction_confidence": "high",
     }
 
@@ -231,6 +240,7 @@ def test_api_capture_with_pre_prediction(client, repo):
     assert ep.title == "Calibration Session 1"
     assert ep.prediction is not None
     assert ep.prediction.target_concept == "⏱️ Tempo / Rushing"
+    assert ep.prediction.target_concept_id == "piano.tempo_rushing"
     assert ep.prediction.prediction_text == "I predict bar 20 will rush due to awkward fingering."
     assert ep.prediction.confidence == "high"
 
@@ -246,6 +256,7 @@ def test_api_set_prediction_endpoint(client, repo):
         json={
             "prediction_text": "Will maintain 60% hold time on P2.",
             "target_concept": "🛡️ Cover / Anchor",
+            "target_concept_id": "cod.cover_anchor",
             "confidence": "high",
         },
     )
@@ -253,6 +264,7 @@ def test_api_set_prediction_endpoint(client, repo):
     data = res.get_json()
     assert data["status"] == "success"
     assert data["prediction"]["prediction_text"] == "Will maintain 60% hold time on P2."
+    assert data["prediction"]["target_concept_id"] == "cod.cover_anchor"
 
     updated = repo.get_episode("ep_set_pred")
     assert updated.prediction is not None
@@ -275,6 +287,7 @@ def test_api_capture_with_voice_prediction(client, repo):
         "domain": "piano",
         "mode": "improve",
         "prediction_concept": "🦾 Tension / Posture",
+        "prediction_concept_id": "piano.tension_posture",
         "prediction_confidence": "high",
     }
 
@@ -311,6 +324,7 @@ def test_api_set_prediction_with_voice_audio(client, repo):
     data = {
         "audio": (pred_audio, "voice_prediction.wav", "audio/wav"),
         "target_concept": "⚔️ Ego-Challenging",
+        "target_concept_id": "cod.ego_challenging",
         "confidence": "high",
     }
 
@@ -326,5 +340,183 @@ def test_api_set_prediction_with_voice_audio(client, repo):
     assert updated.prediction.prediction_artifact_id is not None
     assert updated.prediction.target_concept == "⚔️ Ego-Challenging"
     assert updated.prediction.confidence == "high"
+
+
+def test_multi_artifact_bundle_atomicity(repo):
+    """Verify create_capture_bundle atomically registers multiple artifacts (FIX-03)."""
+    ep = Episode(id="ep_multi_art", title="Multi Artifact Bundle", domain="piano")
+    art1 = Artifact(
+        id="art_1",
+        episode_id="ep_multi_art",
+        artifact_type="audio",
+        is_raw=True,
+        file_path="raw/audio/art1.wav",
+        file_hash="hash1",
+        mime_type="audio/wav",
+        size_bytes=100,
+    )
+    art2 = Artifact(
+        id="art_2",
+        episode_id="ep_multi_art",
+        artifact_type="audio",
+        is_raw=True,
+        file_path="raw/audio/art2.wav",
+        file_hash="hash2",
+        mime_type="audio/wav",
+        size_bytes=50,
+    )
+    evt = Event(id="evt_1", episode_id="ep_multi_art", event_type="capture_saved")
+
+    repo.create_capture_bundle(artifacts=[art1, art2], event=evt, episode=ep)
+
+    saved_arts = repo.list_artifacts_for_episode("ep_multi_art")
+    assert len(saved_arts) == 2
+    assert {a.id for a in saved_arts} == {"art_1", "art_2"}
+
+
+def test_multi_file_recovery_receipt(file_store):
+    """Verify write_capture_receipt supports multi-file lists and raw_files metadata (FIX-03)."""
+    receipt_path = file_store.write_capture_receipt(
+        relative_file_path=["raw/audio/ep1_main.wav", "raw/audio/ep1_pred.wav"],
+        episode_id="ep_receipt_test",
+        metadata={"title": "Crash Recovery Test"},
+        raw_files=[
+            {"artifact_id": "art_main", "relative_path": "raw/audio/ep1_main.wav"},
+            {"artifact_id": "art_pred", "relative_path": "raw/audio/ep1_pred.wav"},
+        ],
+    )
+    assert receipt_path.exists()
+    with open(receipt_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    assert data["episode_id"] == "ep_receipt_test"
+    assert len(data["relative_file_paths"]) == 2
+    assert len(data["raw_files"]) == 2
+    file_store.remove_capture_receipt(receipt_path)
+    assert not receipt_path.exists()
+
+
+def test_api_concept_exposure_telemetry(client, repo):
+    """Verify POST /api/telemetry/concept_exposure records concept_exposed event (FIX-06)."""
+    ep = Episode(id="ep_telemetry_1", title="Telemetry Test Episode", domain="piano")
+    repo.create_episode(ep)
+
+    res = client.post(
+        "/api/telemetry/concept_exposure",
+        json={
+            "episode_id": "ep_telemetry_1",
+            "concept_id": "piano.tempo_rushing",
+            "concept_term": "Tempo / Rushing",
+            "domain": "piano",
+            "phase": "before_activity",
+            "presentation": "chip",
+            "user_requested": True,
+            "context": {"view": "recorder", "action": "chip_selected"},
+        },
+    )
+    assert res.status_code == 201
+    data = res.get_json()
+    assert data["status"] == "logged"
+
+    events = repo.list_events_for_episode("ep_telemetry_1")
+    assert len(events) == 1
+    assert events[0].event_type == "concept_exposed"
+    payload = json.loads(events[0].payload_json)
+    assert payload["concept_id"] == "piano.tempo_rushing"
+    assert payload["user_requested"] is True
+
+
+def test_prediction_voice_transcription_derived_artifact_lineage(test_config, repo, file_store):
+    """Verify handle_transcribe_audio persists derived transcript for prediction voice note with lineage (FIX-02)."""
+    from let.jobs.handlers import handle_transcribe_audio
+    from let.models.entities import Job
+    from let.transcription.mock_engine import MockTranscriber
+
+    ep = Episode(id="ep_pred_tr_lineage", title="Voice Lineage Test", domain="piano")
+    pred_audio_stored = file_store.save_raw_audio(
+        data=io.BytesIO(b"RIFF....WAVEfmt ....data....prediction voice audio"),
+        original_filename="pred.wav",
+        episode_id=ep.id,
+    )
+    pred_art = Artifact(
+        id="art_pred_voice_1",
+        episode_id=ep.id,
+        artifact_type="audio",
+        is_raw=True,
+        file_path=pred_audio_stored.relative_path,
+        file_hash=pred_audio_stored.file_hash,
+        mime_type="audio/wav",
+        size_bytes=pred_audio_stored.size_bytes,
+    )
+    pred = PredictionData(
+        id="pred_voice_1",
+        target_concept="Tempo / Rushing",
+        prediction_text="(Spoken Voice Prediction)",
+        prediction_artifact_id=pred_art.id,
+        confidence="high",
+    )
+    ep.set_prediction(pred)
+
+    main_audio_stored = file_store.save_raw_audio(
+        data=io.BytesIO(b"RIFF....WAVEfmt ....data....main capture audio"),
+        original_filename="main.wav",
+        episode_id=ep.id,
+    )
+    main_art = Artifact(
+        id="art_main_1",
+        episode_id=ep.id,
+        artifact_type="audio",
+        is_raw=True,
+        file_path=main_audio_stored.relative_path,
+        file_hash=main_audio_stored.file_hash,
+        mime_type="audio/wav",
+        size_bytes=main_audio_stored.size_bytes,
+    )
+
+    evt = Event(id="evt_init", episode_id=ep.id, event_type="capture_saved")
+    job = Job(id="job_tr_main", job_type="transcribe_audio", episode_id=ep.id, artifact_id=main_art.id)
+
+    repo.create_capture_bundle(
+        artifacts=[main_art, pred_art],
+        event=evt,
+        episode=ep,
+        job=job,
+    )
+
+    transcriber = MockTranscriber(
+        simulated_text="I predict my tempo will rush during the difficult leap transition."
+    )
+
+    # Run transcription handler
+    msg = handle_transcribe_audio(
+        job=job,
+        config=test_config,
+        repo=repo,
+        file_store=file_store,
+        transcriber=transcriber,
+    )
+    assert "Transcription completed" in msg
+
+    # Verify derived artifacts exist
+    artifacts = repo.list_artifacts_for_episode(ep.id)
+    transcripts = [a for a in artifacts if a.artifact_type == "transcript"]
+    assert len(transcripts) == 2  # 1 main transcript + 1 prediction voice transcript
+
+    pred_transcript = next((t for t in transcripts if t.source_artifact_id == pred_art.id), None)
+    assert pred_transcript is not None
+    assert pred_transcript.is_raw is False
+
+    # Verify episode prediction points to derived transcript
+    updated_ep = repo.get_episode(ep.id)
+    assert updated_ep.prediction.transcript_artifact_id == pred_transcript.id
+    assert "rush" in updated_ep.prediction.prediction_text
+
+    # Verify event logged
+    events = repo.list_events_for_episode(ep.id)
+    pred_completed_evts = [e for e in events if e.event_type == "prediction_transcription_completed"]
+    assert len(pred_completed_evts) == 1
+    ev_payload = json.loads(pred_completed_evts[0].payload_json)
+    assert ev_payload["source_artifact_id"] == pred_art.id
+    assert ev_payload["transcript_artifact_id"] == pred_transcript.id
+
 
 
