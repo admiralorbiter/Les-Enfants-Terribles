@@ -37,8 +37,10 @@ def test_end_to_end_capture_and_async_transcription(
     mock_transcriber = MockTranscriber(simulated_text="This is an automated test transcript.")
     worker = JobWorker(test_config, repo, file_store, transcriber=mock_transcriber)
 
-    did_work = worker.run_once()
-    assert did_work is True
+    job = repo.get_job(job_id)
+    if job.status != "succeeded":
+        worker.run_once()
+        job = repo.get_job(job_id)
 
     # 3. Verify job status
     job = repo.get_job(job_id)

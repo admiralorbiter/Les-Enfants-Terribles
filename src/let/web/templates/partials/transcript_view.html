@@ -1,7 +1,7 @@
 <div id="transcript-container-{{ episode.id }}" class="transcript-box"
      {% if latest_job and latest_job.status in ['queued', 'running'] %}
      hx-get="{{ url_for('main.get_transcript_partial', episode_id=episode.id) }}"
-     hx-trigger="every 2s"
+     hx-trigger="load delay:1.5s"
      hx-swap="outerHTML"
      {% endif %}>
     

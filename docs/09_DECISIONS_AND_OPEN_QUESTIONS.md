@@ -211,11 +211,29 @@ last_reviewed: "2026-08-13"
 
 **Rationale:** Plain file copies of active WAL databases risk corruption. Verified rehearsal in isolated scratch directories proves disaster recoverability before live mutation.
 
+### LET-D-022 — Multi-Modal Perturbation Response & Local Heuristic Engine (Slice 2B/2C)
+
+**Decision:** Enable inline voice and text responses attached directly to specific Liquid perturbation items (`source_artifact_id = analysis_artifact_id`, `event_type = "perturbation_answered"`). Provide built-in offline deterministic question generation (`create_local_heuristic_analysis`) based on domain and mode heuristics without requiring external clipboard work.
+
+**Rationale:** Transforms the bridge from a static one-way export into an active metacognitive dialogue loop, while maintaining zero external cost and zero required cloud dependencies.
+
+---
+
+### LET-D-023 — Low-Friction Metacognitive Ratings (Sharp, Known, Irrelevant)
+
+**Decision:** Implement 1-tap utility ratings on perturbation cards (`⚡ Sharp`, `👀 Known`, `❌ Irrelevant`) persisting directly to the analysis artifact and event log without streaks, scores, or reflection debt.
+
+**Rationale:** Provides the empirical calibration signal needed to evaluate Gate G2 (Productive Liquid) while strictly obeying Rule 8 (anti-guilt mechanics).
+
 ## 2. Open questions
 
 ### LET-Q-001 — Data root and backup [RESOLVED by LET-D-020 & LET-D-021]
 
 Resolved: Dedicated local folder `~/.let_data` (overridable via `LET_DATA_DIR`) with native online SQLite backups, cryptographic `manifest.json` generation, and `let restore --verify` rehearsals.
+
+### LET-Q-019 — Follow-up Modality & Multi-turn Thread Pulling in the Bridge [RESOLVED by LET-D-022 & LET-D-023]
+
+Resolved: Implemented inline micro-recording and text notes attached to individual perturbation items with explicit artifact lineage, accompanied by 1-tap metacognitive utility ratings and instant offline heuristic probes.
 
 ### LET-Q-002 — Exact transcription configuration
 

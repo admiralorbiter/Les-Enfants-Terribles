@@ -1,7 +1,8 @@
-"""Domain entity models for Episodes, Artifacts, Events, Jobs, Transcripts, and Analyses."""
+"""Core domain entities and data transfer objects for LET."""
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
@@ -22,14 +23,15 @@ ModeType = Literal[
     "surprise",
     "decide",
 ]
+ArtifactType = Literal["audio", "video", "transcript", "analysis", "mission_brief", "text", "event_log"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 
 
 class Episode(BaseModel):
-    """An intentional episode container uniting lived evidence, derivations, and interventions."""
+    """An episode is the primary organizing unit for cognitive reflections."""
 
     id: str
-    title: str = "Untitled Episode"
+    title: str
     domain: DomainType = "general"
     mode: ModeType = "capture"
     status: str = "active"
@@ -38,14 +40,14 @@ class Episode(BaseModel):
 
 
 class Artifact(BaseModel):
-    """A durable file record—raw or derived—linked cryptographically via SHA-256."""
+    """An immutable file or structured output with cryptographic provenance."""
 
     id: str
     episode_id: str
-    artifact_type: str  # "audio", "transcript", "text", "analysis", "mission_brief"
-    is_raw: bool = True
+    artifact_type: ArtifactType
+    is_raw: bool
     file_path: str
-    file_hash: str  # SHA-256
+    file_hash: str
     mime_type: str
     size_bytes: int
     source_artifact_id: Optional[str] = None
@@ -59,7 +61,7 @@ class Event(BaseModel):
 
     id: str
     episode_id: str
-    event_type: str  # "capture_saved", "mark", "transcription_started", "analysis_imported", etc.
+    event_type: str  # "capture_saved", "mark", "transcription_started", "analysis_imported", "perturbation_answered", "perturbation_rated", etc.
     payload_json: str = "{}"
     created_at: str = Field(default_factory=utc_now_iso)
 
@@ -103,11 +105,32 @@ class TranscriptData(BaseModel):
     processor_version: str = "small.en"
 
 
+class PerturbationItem(BaseModel):
+    """An individual cognitive challenge/question with interactive response state."""
+
+    id: str
+    question_text: str
+    rating: Optional[str] = None  # "sharp", "already_knew", "irrelevant"
+    answer_text: Optional[str] = None
+    answer_artifact_id: Optional[str] = None
+    answered_at: Optional[str] = None
+
+
 class AnalysisData(BaseModel):
-    """Structured dual output parsed from external AI Mission Brief response."""
+    """Structured dual output parsed from external AI Mission Brief response or local heuristic generator."""
 
     synthesis_text: str = ""
     perturbations: list[str] = Field(default_factory=list)
+    items: list[PerturbationItem] = Field(default_factory=list)
     provider: str = "manual"
     raw_response: str = ""
     created_at: str = Field(default_factory=utc_now_iso)
+
+    def get_items(self) -> list[PerturbationItem]:
+        """Return structured items, normalizing legacy string lists on the fly."""
+        if self.items:
+            return self.items
+        items = []
+        for i, q in enumerate(self.perturbations):
+            items.append(PerturbationItem(id=f"pert_{i+1}", question_text=q))
+        return items

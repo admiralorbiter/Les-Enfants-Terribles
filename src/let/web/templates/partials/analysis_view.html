@@ -1,6 +1,7 @@
 <div id="analysis-container-{{ episode.id }}" class="analysis-wrapper">
     {% if analysis_data %}
         <!-- Polished Synthesis Box -->
+        {% if analysis_data.synthesis_text %}
         <div class="synthesis-card">
             <div class="synthesis-header">
                 <div class="synthesis-title">
@@ -15,21 +16,206 @@
                 {{ analysis_data.synthesis_text }}
             </div>
         </div>
+        {% endif %}
 
         <!-- Liquid Perturbation Card -->
-        {% if analysis_data.perturbations %}
+        {% set items = analysis_data.get_items() %}
+        {% if items %}
         <div class="liquid-card">
             <div class="liquid-header">
                 <span class="liquid-title">Liquid Cognitive Perturbations</span>
                 <span class="tag">{{ episode.mode }}</span>
             </div>
             <div class="liquid-questions">
-                {% for q in analysis_data.perturbations %}
-                <div class="liquid-question-item">
-                    <span class="question-bullet">?</span>
-                    <span class="question-text">{{ q }}</span>
+                <!-- Top 1-2 Focused Questions -->
+                {% for item in items[:2] %}
+                <div class="liquid-question-item" id="item-{{ episode.id }}-{{ item.id }}">
+                    <div class="question-main">
+                        <span class="question-bullet">?</span>
+                        <span class="question-text">{{ item.question_text }}</span>
+                    </div>
+
+                    <!-- 1-Tap Rating Pills -->
+                    <div class="perturbation-ratings">
+                        <span class="rating-label">Utility:</span>
+                        <button type="button" class="pill-btn pill-sharp {% if item.rating == 'sharp' %}active{% endif %}"
+                                hx-post="/api/episodes/{{ episode.id }}/perturbations/{{ item.id }}/rate?rating=sharp"
+                                hx-target="#analysis-container-{{ episode.id }}"
+                                hx-swap="outerHTML show:none scroll:none"
+                                title="Revealed something non-obvious">
+                            ⚡ Sharp
+                        </button>
+                        <button type="button" class="pill-btn pill-known {% if item.rating == 'already_knew' %}active{% endif %}"
+                                hx-post="/api/episodes/{{ episode.id }}/perturbations/{{ item.id }}/rate?rating=already_knew"
+                                hx-target="#analysis-container-{{ episode.id }}"
+                                hx-swap="outerHTML show:none scroll:none"
+                                title="Accurate but already known">
+                            👀 Known
+                        </button>
+                        <button type="button" class="pill-btn pill-irrelevant {% if item.rating == 'irrelevant' %}active{% endif %}"
+                                hx-post="/api/episodes/{{ episode.id }}/perturbations/{{ item.id }}/rate?rating=irrelevant"
+                                hx-target="#analysis-container-{{ episode.id }}"
+                                hx-swap="outerHTML show:none scroll:none"
+                                title="Irrelevant or model fluff">
+                            ❌ Irrelevant
+                        </button>
+                    </div>
+
+                    <!-- Answer Display / Controls -->
+                    <div class="perturbation-answer-section">
+                        {% if item.answer_artifact_id %}
+                            <div class="answer-display audio-answer">
+                                <span class="answer-badge">🎙️ Voice Response</span>
+                                <audio controls preload="none" src="/media/{{ item.answer_artifact_id }}"></audio>
+                                <span class="episode-timestamp">{{ item.answered_at[:16].replace('T', ' ') if item.answered_at else '' }}</span>
+                            </div>
+                        {% elif item.answer_text %}
+                            <div class="answer-display text-answer">
+                                <span class="answer-badge">✍️ Reflection</span>
+                                <p class="answer-content">{{ item.answer_text }}</p>
+                                <span class="episode-timestamp">{{ item.answered_at[:16].replace('T', ' ') if item.answered_at else '' }}</span>
+                            </div>
+                        {% else %}
+                            <div class="answer-actions" id="actions-{{ episode.id }}-{{ item.id }}">
+                                <button type="button" class="btn-micro" onclick="startInlineVoiceAnswer('{{ episode.id }}', '{{ item.id }}')" id="voice-btn-{{ episode.id }}-{{ item.id }}">
+                                    🎙️ Voice Answer
+                                </button>
+                                <button type="button" class="btn-micro" onclick="toggleInlineTextAnswer('{{ episode.id }}', '{{ item.id }}')">
+                                    ✍️ Note
+                                </button>
+                            </div>
+
+                            <!-- Inline Voice Recording Status -->
+                            <div id="inline-voice-box-{{ episode.id }}-{{ item.id }}" class="inline-voice-box" style="display: none;">
+                                <span class="recording-indicator">● Recording answer...</span>
+                                <span id="inline-timer-{{ episode.id }}-{{ item.id }}">00:00</span>
+                                <button type="button" class="btn-micro btn-stop" onclick="stopInlineVoiceAnswer('{{ episode.id }}', '{{ item.id }}')">
+                                    ■ Finish &amp; Attach
+                                </button>
+                            </div>
+
+                            <!-- Inline Text Note Form -->
+                            <form id="inline-text-form-{{ episode.id }}-{{ item.id }}" class="inline-text-form" style="display: none;"
+                                  hx-post="/api/episodes/{{ episode.id }}/perturbations/{{ item.id }}/answer"
+                                  hx-target="#analysis-container-{{ episode.id }}"
+                                  hx-swap="outerHTML">
+                                <textarea name="answer_text" class="form-input form-textarea" rows="3" placeholder="Quick reflection or answer..." required></textarea>
+                                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                                    <button type="submit" class="btn-micro btn-primary">Save Answer</button>
+                                    <button type="button" class="btn-micro" onclick="toggleInlineTextAnswer('{{ episode.id }}', '{{ item.id }}')">Cancel</button>
+                                </div>
+                            </form>
+                        {% endif %}
+                    </div>
                 </div>
                 {% endfor %}
+
+                <!-- Collapsible Overflow for Additional Questions if more than 2 -->
+                {% if items|length > 2 %}
+                <details class="more-questions-details" style="margin-top: 0.75rem;">
+                    <summary class="btn-micro" style="cursor: pointer; display: inline-block; user-select: none; background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); padding: 0.25rem 0.6rem; border-radius: var(--radius-sm); color: var(--text-secondary);">
+                        + {{ items|length - 2 }} Additional Sub-Questions
+                    </summary>
+                    <div style="margin-top: 0.75rem;">
+                        {% for item in items[2:] %}
+                        <div class="liquid-question-item" id="item-{{ episode.id }}-{{ item.id }}" style="opacity: 0.92;">
+                            <div class="question-main">
+                                <span class="question-bullet">?</span>
+                                <span class="question-text">{{ item.question_text }}</span>
+                            </div>
+
+                            <!-- 1-Tap Rating Pills -->
+                            <div class="perturbation-ratings">
+                                <span class="rating-label">Utility:</span>
+                                <button type="button" class="pill-btn pill-sharp {% if item.rating == 'sharp' %}active{% endif %}"
+                                        hx-post="/api/episodes/{{ episode.id }}/perturbations/{{ item.id }}/rate?rating=sharp"
+                                        hx-target="#analysis-container-{{ episode.id }}"
+                                        hx-swap="outerHTML show:none scroll:none">
+                                    ⚡ Sharp
+                                </button>
+                                <button type="button" class="pill-btn pill-known {% if item.rating == 'already_knew' %}active{% endif %}"
+                                        hx-post="/api/episodes/{{ episode.id }}/perturbations/{{ item.id }}/rate?rating=already_knew"
+                                        hx-target="#analysis-container-{{ episode.id }}"
+                                        hx-swap="outerHTML show:none scroll:none">
+                                    👀 Known
+                                </button>
+                                <button type="button" class="pill-btn pill-irrelevant {% if item.rating == 'irrelevant' %}active{% endif %}"
+                                        hx-post="/api/episodes/{{ episode.id }}/perturbations/{{ item.id }}/rate?rating=irrelevant"
+                                        hx-target="#analysis-container-{{ episode.id }}"
+                                        hx-swap="outerHTML show:none scroll:none">
+                                    ❌ Irrelevant
+                                </button>
+                            </div>
+
+                            <!-- Answer Display / Controls -->
+                            <div class="perturbation-answer-section">
+                                {% if item.answer_artifact_id %}
+                                    <div class="answer-display audio-answer">
+                                        <span class="answer-badge">🎙️ Voice Response</span>
+                                        <audio controls preload="none" src="/media/{{ item.answer_artifact_id }}"></audio>
+                                        <span class="episode-timestamp">{{ item.answered_at[:16].replace('T', ' ') if item.answered_at else '' }}</span>
+                                    </div>
+                                {% elif item.answer_text %}
+                                    <div class="answer-display text-answer">
+                                        <span class="answer-badge">✍️ Reflection</span>
+                                        <p class="answer-content">{{ item.answer_text }}</p>
+                                        <span class="episode-timestamp">{{ item.answered_at[:16].replace('T', ' ') if item.answered_at else '' }}</span>
+                                    </div>
+                                {% else %}
+                                    <div class="answer-actions" id="actions-{{ episode.id }}-{{ item.id }}">
+                                        <button type="button" class="btn-micro" onclick="startInlineVoiceAnswer('{{ episode.id }}', '{{ item.id }}')">
+                                            🎙️ Voice Answer
+                                        </button>
+                                        <button type="button" class="btn-micro" onclick="toggleInlineTextAnswer('{{ episode.id }}', '{{ item.id }}')">
+                                            ✍️ Note
+                                        </button>
+                                    </div>
+                                    <div id="inline-voice-box-{{ episode.id }}-{{ item.id }}" class="inline-voice-box" style="display: none;">
+                                        <span class="recording-indicator">● Recording answer...</span>
+                                        <span id="inline-timer-{{ episode.id }}-{{ item.id }}">00:00</span>
+                                        <button type="button" class="btn-micro btn-stop" onclick="stopInlineVoiceAnswer('{{ episode.id }}', '{{ item.id }}')">
+                                            ■ Finish &amp; Attach
+                                        </button>
+                                    </div>
+                                    <form id="inline-text-form-{{ episode.id }}-{{ item.id }}" class="inline-text-form" style="display: none;"
+                                          hx-post="/api/episodes/{{ episode.id }}/perturbations/{{ item.id }}/answer"
+                                          hx-target="#analysis-container-{{ episode.id }}"
+                                          hx-swap="outerHTML">
+                                        <textarea name="answer_text" class="form-input form-textarea" rows="3" placeholder="Quick reflection or answer..." required></textarea>
+                                        <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                                            <button type="submit" class="btn-micro btn-primary">Save Answer</button>
+                                            <button type="button" class="btn-micro" onclick="toggleInlineTextAnswer('{{ episode.id }}', '{{ item.id }}')">Cancel</button>
+                                        </div>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <!-- If analysis exists but has no perturbations yet -->
+        <div class="liquid-card" style="border-style: dashed; margin-top: 0.75rem;">
+            <div class="liquid-header">
+                <span class="liquid-title">Liquid Cognitive Perturbations</span>
+                <span class="tag">Not Detected</span>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0 0.75rem 0;">
+                No questions were detected in this analysis import. You can generate instant offline probes or import follow-up questions:
+            </p>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn-micro btn-primary"
+                        hx-post="/api/episodes/{{ episode.id }}/generate_local_questions"
+                        hx-target="#analysis-container-{{ episode.id }}"
+                        hx-swap="outerHTML show:none scroll:none">
+                    ⚡ Generate Local Probes
+                </button>
+                <button type="button" class="btn-micro btn-secondary" onclick="openImportModal('{{ episode.id }}')">
+                    📥 Paste Follow-up Questions
+                </button>
             </div>
         </div>
         {% endif %}
@@ -37,9 +223,18 @@
         {% if analysis_art %}
         <div class="artifact-footer" style="margin-top: 0.5rem;">
             <span><strong style="color: var(--accent-emerald);">DERIVED ANALYSIS</strong> SHA-256: <code>{{ analysis_art.file_hash[:16] }}...</code></span>
-            <button type="button" class="btn-micro" onclick="openImportModal('{{ episode.id }}')">
-                ↻ Re-import Response
-            </button>
+            <div style="display: flex; gap: 0.4rem;">
+                <button type="button" class="btn-micro" 
+                        hx-post="/api/episodes/{{ episode.id }}/generate_local_questions"
+                        hx-target="#analysis-container-{{ episode.id }}"
+                        hx-swap="outerHTML show:none scroll:none"
+                        title="Generate / refresh local heuristic questions">
+                    ⚡ Local Probes
+                </button>
+                <button type="button" class="btn-micro" onclick="openImportModal('{{ episode.id }}')">
+                    ↻ Re-import
+                </button>
+            </div>
         </div>
         {% endif %}
 
@@ -51,6 +246,13 @@
             </button>
             <button type="button" class="btn-bridge btn-import" onclick="openImportModal('{{ episode.id }}')">
                 📥 Import AI Response
+            </button>
+            <button type="button" class="btn-bridge" 
+                    hx-post="/api/episodes/{{ episode.id }}/generate_local_questions"
+                    hx-target="#analysis-container-{{ episode.id }}"
+                    hx-swap="outerHTML show:none scroll:none"
+                    title="Generate instant offline cognitive questions">
+                ⚡ Instant Local Probes
             </button>
         </div>
     {% endif %}

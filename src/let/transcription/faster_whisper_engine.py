@@ -12,7 +12,7 @@ logger = logging.getLogger("let.transcription")
 
 
 class FasterWhisperTranscriber(Transcriber):
-    """Local, offline transcriber powered by faster-whisper with automatic fallback."""
+    """Local, offline transcriber powered by faster-whisper with automatic CPU fallback."""
 
     def __init__(
         self,
@@ -56,14 +56,13 @@ class FasterWhisperTranscriber(Transcriber):
         return self._model
 
     def transcribe(self, audio_path: Path | str) -> TranscriptData:
-        """Transcribe an audio file into timestamped segments with fallback safety."""
+        """Transcribe an audio file into timestamped segments with robust fallback safety."""
         path = Path(audio_path)
         if not path.exists():
             raise FileNotFoundError(f"Audio file not found: {path}")
 
-        model = self._get_model()
-        
         try:
+            model = self._get_model()
             segments_gen, info = model.transcribe(str(path), beam_size=5)
             segments: list[TranscriptSegment] = []
             full_text_parts: list[str] = []
@@ -80,9 +79,9 @@ class FasterWhisperTranscriber(Transcriber):
                     )
                     full_text_parts.append(text)
 
-        except RuntimeError as e:
-            if "cublas" in str(e).lower() or "cuda" in str(e).lower() or "cudnn" in str(e).lower():
-                logger.warning(f"CUDA runtime failure during transcription: {e}. Switching to CPU fallback...")
+        except Exception as e:
+            logger.warning(f"Whisper transcription failed on '{self._active_device}': {e}. Retrying on CPU fallback...")
+            try:
                 self._model = self._init_model("cpu", "int8")
                 self._active_device = "cpu"
                 model = self._model
@@ -100,14 +99,15 @@ class FasterWhisperTranscriber(Transcriber):
                             )
                         )
                         full_text_parts.append(text)
-            else:
-                raise
+            except Exception as cpu_err:
+                logger.error(f"CPU transcription fallback also failed: {cpu_err}")
+                raise cpu_err
 
         full_text = " ".join(full_text_parts)
 
         return TranscriptData(
             text=full_text,
-            language=info.language,
+            language=getattr(info, "language", "en"),
             duration_sec=round(getattr(info, "duration", 0.0), 2),
             segments=segments,
             processor_name=self.name,

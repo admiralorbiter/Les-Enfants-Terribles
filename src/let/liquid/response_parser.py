@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 from let.config import Config
 from let.db.repository import Repository
-from let.models.entities import AnalysisData, Artifact, Event
+from let.models.entities import AnalysisData, Artifact, Event, PerturbationItem
 from let.storage.file_store import FileStore
 
 
@@ -21,12 +21,12 @@ def parse_ai_response(raw_text: str, provider: str = "manual") -> AnalysisData:
 
     # Regex patterns for delimiter sections
     synthesis_match = re.search(
-        r"(?:^|\n)#{1,4}\s*(?:Polished\s+Synthesis|Synthesis|Summary|Review\s+Note)[:\s]*\n([\s\S]*?)(?=(?:\n#{1,4}\s*(?:Liquid\s+Perturbations|Perturbations|Questions)|$))",
+        r"(?:^|\n)#{1,4}\s*(?:Polished\s+Synthesis|Synthesis|Summary|Review\s+Note)[:\s]*\n([\s\S]*?)(?=(?:\n#{1,4}\s*(?:Liquid\s+Perturbations|Perturbations|Questions|Probes|Challenges)|$))",
         text,
         re.IGNORECASE,
     )
     perturbations_match = re.search(
-        r"(?:^|\n)#{1,4}\s*(?:Liquid\s+Perturbations|Perturbations|Questions)[:\s]*\n([\s\S]*)$",
+        r"(?:^|\n)#{1,4}\s*(?:Liquid\s+Perturbations|Perturbations|Questions|Probes|Challenges|Follow-up\s+Questions)[:\s]*\n([\s\S]*)$",
         text,
         re.IGNORECASE,
     )
@@ -36,7 +36,6 @@ def parse_ai_response(raw_text: str, provider: str = "manual") -> AnalysisData:
 
     if perturbations_match:
         pert_raw = perturbations_match.group(1).strip()
-        # Extract numbered items or bullet points
         lines = pert_raw.split("\n")
         current_item: list[str] = []
         for line in lines:
@@ -60,16 +59,35 @@ def parse_ai_response(raw_text: str, provider: str = "manual") -> AnalysisData:
 
     # Fallback if delimiters were not strictly followed
     if not synthesis_text and not perturbations:
-        synthesis_text = text
-        # Extract any sentences ending with a question mark as perturbations
-        sentences = re.split(r"(?<=[.?!])\s+", text)
-        for s in sentences:
-            if s.strip().endswith("?"):
-                perturbations.append(s.strip())
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        # Check if every line starts with a list bullet (e.g. 1., 2., -, *)
+        is_bulleted_list = bool(lines) and all(
+            re.match(r"^(?:\d+[\.\)]|[-*•])\s+", l) for l in lines
+        )
+
+        if is_bulleted_list:
+            for l in lines:
+                clean_l = re.sub(r"^(?:\d+[\.\)]|[-*•])\s+", "", l)
+                perturbations.append(clean_l)
+        else:
+            synthesis_text = text
+            sentences = re.split(r"(?<=[.?!])\s+", text)
+            for s in sentences:
+                if s.strip().endswith("?"):
+                    perturbations.append(s.strip())
+
+    items: list[PerturbationItem] = [
+        PerturbationItem(
+            id=f"pert_{i+1}_{uuid.uuid4().hex[:6]}",
+            question_text=q,
+        )
+        for i, q in enumerate(perturbations)
+    ]
 
     return AnalysisData(
         synthesis_text=synthesis_text,
         perturbations=perturbations,
+        items=items,
         provider=provider,
         raw_response=text,
     )
@@ -83,10 +101,17 @@ def import_analysis_response(
     config: Config,
     repo: Repository,
     file_store: FileStore,
+    existing_analysis: Optional[AnalysisData] = None,
 ) -> Tuple[Artifact, AnalysisData]:
     """Persist imported external AI response as a derived artifact with relative path and SHA-256 integrity."""
     config.ensure_directories()
     analysis_data = parse_ai_response(raw_response, provider=provider)
+
+    # If pasting only perturbations into an episode that already has synthesis, preserve synthesis!
+    if existing_analysis and existing_analysis.synthesis_text and not analysis_data.synthesis_text:
+        analysis_data.synthesis_text = existing_analysis.synthesis_text
+        if provider == "manual" and existing_analysis.provider:
+            analysis_data.provider = existing_analysis.provider
 
     json_bytes = analysis_data.model_dump_json(indent=2).encode("utf-8")
     analysis_hash = FileStore.compute_hash_bytes(json_bytes)

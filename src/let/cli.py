@@ -29,9 +29,8 @@ def run_server(args: argparse.Namespace) -> None:
     debug = getattr(args, "debug", False) or config.debug
     no_worker = getattr(args, "no_worker", False)
 
-    # In debug mode, start the in-process worker only in the Werkzeug reloader child
-    should_start_worker = (not no_worker) and (not debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true")
-    app = create_app(config, start_worker=should_start_worker)
+    start_worker = not no_worker
+    app = create_app(config, start_worker=start_worker)
 
     print(f"\n=======================================================")
     print(f" Les Enfants Terribles (LET) — Capture & Audio Substrate")

@@ -17,6 +17,7 @@ from flask import (
     send_file,
 )
 from let.liquid.brief_generator import generate_mission_brief
+from let.liquid.heuristics import create_local_heuristic_analysis
 from let.liquid.response_parser import import_analysis_response
 from let.models.entities import (
     AnalysisData,
@@ -25,6 +26,7 @@ from let.models.entities import (
     Event,
     Job,
     TranscriptData,
+    utc_now_iso,
 )
 
 bp = Blueprint("main", __name__)
@@ -206,7 +208,6 @@ def get_mission_brief(episode_id: str):
         audio_artifact=latest_audio,
     )
 
-    # Persist the Mission Brief as a derived artifact for exact lineage tracking
     brief_bytes = brief_text.encode("utf-8")
     brief_hash = file_store.compute_hash_bytes(brief_bytes)
     target_filename = f"brief_{episode_id}_{brief_hash[:16]}.md"
@@ -277,10 +278,11 @@ def import_analysis(episode_id: str):
         or "manual"
     ).strip()
 
-    # Link back to latest mission brief or latest transcript as source artifact
     artifacts = repo.list_artifacts_for_episode(episode_id)
     brief_artifacts = [a for a in artifacts if a.artifact_type == "mission_brief"]
     latest_transcript = repo.get_latest_transcript_for_episode(episode_id)
+    latest_analysis = repo.get_latest_analysis_for_episode(episode_id)
+    existing_analysis_data = _load_analysis_data(latest_analysis) if latest_analysis else None
 
     source_artifact_id = (
         brief_artifacts[-1].id
@@ -288,7 +290,6 @@ def import_analysis(episode_id: str):
         else (latest_transcript.id if latest_transcript else None)
     )
 
-    # Persist derived analysis artifact
     artifact, analysis_data = import_analysis_response(
         raw_response=raw_response,
         provider=provider,
@@ -297,6 +298,7 @@ def import_analysis(episode_id: str):
         config=config,
         repo=repo,
         file_store=file_store,
+        existing_analysis=existing_analysis_data,
     )
 
     if request.headers.get("HX-Request"):
@@ -317,6 +319,254 @@ def import_analysis(episode_id: str):
         ),
         201,
     )
+
+
+@bp.route("/api/episodes/<episode_id>/generate_local_questions", methods=["POST"])
+def generate_local_questions(episode_id: str):
+    """Generate instant offline cognitive questions using local domain heuristics."""
+    repo = _get_repo()
+    config = _get_config()
+    file_store = _get_store()
+
+    episode = repo.get_episode(episode_id)
+    if not episode:
+        return jsonify({"error": "Episode not found"}), 404
+
+    latest_transcript_art = repo.get_latest_transcript_for_episode(episode_id)
+    transcript_data = _load_transcript_data(latest_transcript_art) if latest_transcript_art else None
+    transcript_text = transcript_data.text if transcript_data else ""
+
+    latest_analysis_art = repo.get_latest_analysis_for_episode(episode_id)
+    existing_analysis = _load_analysis_data(latest_analysis_art) if latest_analysis_art else None
+
+    analysis_data = create_local_heuristic_analysis(episode, transcript_text)
+    if existing_analysis and existing_analysis.synthesis_text:
+        analysis_data.synthesis_text = existing_analysis.synthesis_text
+        if existing_analysis.provider and existing_analysis.provider != "Local Heuristic Engine":
+            analysis_data.provider = existing_analysis.provider
+
+    json_bytes = analysis_data.model_dump_json(indent=2).encode("utf-8")
+    analysis_hash = file_store.compute_hash_bytes(json_bytes)
+
+    target_filename = f"analysis_local_{episode_id}_{analysis_hash[:16]}.json"
+    rel_subpath = Path("derived") / "analyses" / target_filename
+    stored = file_store.save_derived_artifact(json_bytes, rel_subpath)
+
+    artifact_id = f"art_an_{uuid.uuid4().hex[:12]}"
+    artifact = Artifact(
+        id=artifact_id,
+        episode_id=episode_id,
+        artifact_type="analysis",
+        is_raw=False,
+        file_path=stored.relative_path,
+        file_hash=analysis_hash,
+        mime_type="application/json",
+        size_bytes=stored.size_bytes,
+        source_artifact_id=latest_transcript_art.id if latest_transcript_art else None,
+        processor_name="local_heuristic_engine",
+        processor_version="v1.0",
+    )
+    repo.create_artifact(artifact)
+
+    repo.create_event(
+        Event(
+            id=f"evt_{uuid.uuid4().hex[:12]}",
+            episode_id=episode_id,
+            event_type="local_questions_generated",
+            payload_json=json.dumps({"artifact_id": artifact_id, "questions_count": len(analysis_data.items)}),
+        )
+    )
+
+    if request.headers.get("HX-Request"):
+        return render_template(
+            "partials/analysis_view.html",
+            episode=episode,
+            analysis_art=artifact,
+            analysis_data=analysis_data,
+        )
+
+    return jsonify({"status": "success", "artifact": artifact.model_dump(), "analysis": analysis_data.model_dump()}), 201
+
+
+@bp.route("/api/episodes/<episode_id>/perturbations/<question_id>/rate", methods=["POST"])
+def rate_perturbation(episode_id: str, question_id: str):
+    """Save 1-tap rating (sharp, already_knew, irrelevant) on a specific perturbation question."""
+    repo = _get_repo()
+    config = _get_config()
+    file_store = _get_store()
+
+    episode = repo.get_episode(episode_id)
+    if not episode:
+        return jsonify({"error": "Episode not found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    rating = (
+        request.args.get("rating", "").strip()
+        or request.form.get("rating", "").strip()
+        or payload.get("rating", "").strip()
+    )
+    if not rating:
+        return jsonify({"error": "No rating specified"}), 400
+
+    latest_analysis_art = repo.get_latest_analysis_for_episode(episode_id)
+    if not latest_analysis_art:
+        return jsonify({"error": "No analysis found for episode"}), 404
+
+    analysis_data = _load_analysis_data(latest_analysis_art)
+    if not analysis_data:
+        return jsonify({"error": "Could not read analysis data"}), 500
+
+    items = analysis_data.get_items()
+    target_item = None
+    for idx, item in enumerate(items):
+        if (
+            item.id == question_id
+            or (question_id.isdigit() and int(question_id) == idx + 1)
+            or question_id == f"pert_{idx + 1}"
+            or item.id.startswith(f"{question_id}_")
+            or question_id.startswith(f"{item.id}_")
+            or (question_id.startswith("pert_") and len(question_id.split("_")) > 1 and question_id.split("_")[1] == str(idx + 1))
+        ):
+            # Toggle rating if clicked twice
+            if item.rating == rating:
+                item.rating = None
+            else:
+                item.rating = rating
+            target_item = item
+            break
+
+    if not target_item:
+        return jsonify({"error": f"Question {question_id} not found"}), 404
+
+    analysis_data.items = items
+    json_bytes = analysis_data.model_dump_json(indent=2).encode("utf-8")
+    rel_path = file_store.to_relative_path(latest_analysis_art.file_path)
+    file_store.save_derived_artifact(json_bytes, Path(rel_path))
+
+    repo.create_event(
+        Event(
+            id=f"evt_{uuid.uuid4().hex[:12]}",
+            episode_id=episode_id,
+            event_type="perturbation_rated",
+            payload_json=json.dumps({"question_id": question_id, "rating": rating}),
+        )
+    )
+
+    if request.headers.get("HX-Request"):
+        return render_template(
+            "partials/analysis_view.html",
+            episode=episode,
+            analysis_art=latest_analysis_art,
+            analysis_data=analysis_data,
+        )
+
+    return jsonify({"status": "success", "question_id": question_id, "rating": rating})
+
+
+@bp.route("/api/episodes/<episode_id>/perturbations/<question_id>/answer", methods=["POST"])
+def answer_perturbation(episode_id: str, question_id: str):
+    """Attach an inline voice recording or typed text note answer to a specific perturbation."""
+    repo = _get_repo()
+    config = _get_config()
+    file_store = _get_store()
+
+    episode = repo.get_episode(episode_id)
+    if not episode:
+        return jsonify({"error": "Episode not found"}), 404
+
+    latest_analysis_art = repo.get_latest_analysis_for_episode(episode_id)
+    if not latest_analysis_art:
+        return jsonify({"error": "No analysis found for episode"}), 404
+
+    analysis_data = _load_analysis_data(latest_analysis_art)
+    if not analysis_data:
+        return jsonify({"error": "Could not read analysis data"}), 500
+
+    items = analysis_data.get_items()
+    target_item = None
+    for idx, item in enumerate(items):
+        if (
+            item.id == question_id
+            or (question_id.isdigit() and int(question_id) == idx + 1)
+            or question_id == f"pert_{idx + 1}"
+            or item.id.startswith(f"{question_id}_")
+            or question_id.startswith(f"{item.id}_")
+            or (question_id.startswith("pert_") and len(question_id.split("_")) > 1 and question_id.split("_")[1] == str(idx + 1))
+        ):
+            target_item = item
+            break
+
+    if not target_item:
+        return jsonify({"error": f"Question {question_id} not found"}), 404
+
+    answer_art_id = None
+    answer_text = None
+
+    if "audio" in request.files:
+        audio_file = request.files["audio"]
+        if not audio_file.filename:
+            audio_file.filename = "answer.webm"
+
+        stored = file_store.save_raw_audio(
+            data=audio_file.stream,
+            original_filename=audio_file.filename,
+            episode_id=episode_id,
+        )
+        answer_art_id = f"art_{uuid.uuid4().hex[:12]}"
+        answer_art = Artifact(
+            id=answer_art_id,
+            episode_id=episode_id,
+            artifact_type="audio",
+            is_raw=True,
+            file_path=stored.relative_path,
+            file_hash=stored.file_hash,
+            mime_type=audio_file.content_type or "audio/webm",
+            size_bytes=stored.size_bytes,
+            source_artifact_id=latest_analysis_art.id,
+            processor_name="perturbation_voice_response",
+            processor_version="v1.0",
+        )
+        repo.create_artifact(answer_art)
+        target_item.answer_artifact_id = answer_art_id
+        target_item.answered_at = utc_now_iso()
+
+    else:
+        payload = request.get_json(silent=True) or {}
+        answer_text = request.form.get("answer_text", "").strip() or payload.get("answer_text", "").strip()
+        if not answer_text:
+            return jsonify({"error": "No audio or text answer provided"}), 400
+        target_item.answer_text = answer_text
+        target_item.answered_at = utc_now_iso()
+
+    analysis_data.items = items
+    json_bytes = analysis_data.model_dump_json(indent=2).encode("utf-8")
+    rel_path = file_store.to_relative_path(latest_analysis_art.file_path)
+    file_store.save_derived_artifact(json_bytes, Path(rel_path))
+
+    repo.create_event(
+        Event(
+            id=f"evt_{uuid.uuid4().hex[:12]}",
+            episode_id=episode_id,
+            event_type="perturbation_answered",
+            payload_json=json.dumps(
+                {
+                    "question_id": question_id,
+                    "answer_artifact_id": answer_art_id,
+                    "has_text": bool(answer_text),
+                }
+            ),
+        )
+    )
+
+    if request.headers.get("HX-Request"):
+        return render_template(
+            "partials/analysis_view.html",
+            episode=episode,
+            analysis_art=latest_analysis_art,
+            analysis_data=analysis_data,
+        )
+
+    return jsonify({"status": "success", "question_id": question_id, "item": target_item.model_dump()}), 201
 
 
 @bp.route("/api/episodes/<episode_id>/update_title", methods=["POST"])
@@ -431,7 +681,6 @@ def capture_audio():
             job=job,
         )
     except Exception as exc:
-        # Save disk recovery receipt so let doctor --repair can rescue it
         file_store.write_capture_receipt(
             relative_file_path=stored.relative_path,
             episode_id=episode_id,
@@ -490,7 +739,7 @@ def retranscribe_episode(episode_id: str):
     if not audio_artifacts:
         return jsonify({"error": "No audio artifact to transcribe"}), 400
 
-    target_audio = audio_artifacts[-1]  # Latest audio artifact
+    target_audio = audio_artifacts[-1]
     job_id = f"job_{uuid.uuid4().hex[:12]}"
     job = Job(
         id=job_id,

@@ -144,6 +144,11 @@ async function uploadRecording(blob, mimeType, episodeId = null) {
             if (window.htmx) {
                 htmx.process(feed);
             }
+            const firstCard = feed.firstElementChild;
+            const epId = (firstCard && firstCard.id) ? firstCard.id.replace('episode-', '') : episodeId;
+            if (epId) {
+                pollTranscriptUntilReady(epId);
+            }
         } else if (episodeId) {
             window.location.reload();
         }
@@ -225,6 +230,45 @@ function seekAudio(artifactId, seconds) {
         player.currentTime = parseFloat(seconds);
         player.play().catch(() => {});
     }
+}
+
+// ---------------- Active Transcript Polling Watcher ----------------
+
+function pollTranscriptUntilReady(episodeId, maxAttempts = 60) {
+    let attempts = 0;
+    const interval = setInterval(async () => {
+        attempts++;
+        const container = document.getElementById(`transcript-container-${episodeId}`);
+        if (!container || attempts > maxAttempts) {
+            clearInterval(interval);
+            return;
+        }
+
+        // If it's already ready, stop polling
+        if (container.querySelector('.transcript-body') || container.querySelector('.status-ready')) {
+            clearInterval(interval);
+            return;
+        }
+
+        try {
+            const res = await fetch(`/episodes/${episodeId}/transcript`);
+            if (res.ok) {
+                const html = await res.text();
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                const newBox = temp.firstElementChild;
+                if (newBox && (newBox.querySelector('.transcript-body') || newBox.querySelector('.status-ready') || newBox.querySelector('.transcript-error'))) {
+                    container.outerHTML = html;
+                    if (window.htmx) {
+                        htmx.process(document.getElementById(`transcript-container-${episodeId}`) || document.body);
+                    }
+                    clearInterval(interval);
+                }
+            }
+        } catch (e) {
+            console.error('Transcript polling error:', e);
+        }
+    }, 1500);
 }
 
 // ---------------- Mission Brief & Analysis Bridge Helpers ----------------
@@ -349,3 +393,118 @@ async function submitAnalysisImport(event, episodeId) {
         }
     }
 }
+
+// ---------------- Inline Perturbation Voice & Text Answers ----------------
+
+let inlineMediaRecorder = null;
+let inlineAudioChunks = [];
+let inlineStream = null;
+let inlineTimerInterval = null;
+let inlineStartTime = null;
+
+async function startInlineVoiceAnswer(episodeId, questionId) {
+    const actions = document.getElementById(`actions-${episodeId}-${questionId}`);
+    const voiceBox = document.getElementById(`inline-voice-box-${episodeId}-${questionId}`);
+    const timerDisplay = document.getElementById(`inline-timer-${episodeId}-${questionId}`);
+
+    try {
+        inlineAudioChunks = [];
+        inlineStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+            }
+        });
+
+        const mimeType = getSupportedMimeType();
+        const options = mimeType ? { mimeType } : {};
+        inlineMediaRecorder = new MediaRecorder(inlineStream, options);
+
+        inlineMediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+                inlineAudioChunks.push(event.data);
+            }
+        };
+
+        inlineMediaRecorder.onstop = async () => {
+            const mime = inlineMediaRecorder.mimeType || 'audio/webm';
+            const audioBlob = new Blob(inlineAudioChunks, { type: mime });
+            if (inlineStream) {
+                inlineStream.getTracks().forEach(track => track.stop());
+            }
+            await uploadPerturbationVoiceAnswer(audioBlob, mime, episodeId, questionId);
+        };
+
+        inlineMediaRecorder.start(250);
+
+        if (actions) actions.style.display = 'none';
+        if (voiceBox) voiceBox.style.display = 'flex';
+
+        inlineStartTime = Date.now();
+        if (timerDisplay) timerDisplay.textContent = '00:00';
+        inlineTimerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - inlineStartTime) / 1000);
+            if (timerDisplay) timerDisplay.textContent = formatDuration(elapsed);
+        }, 500);
+
+    } catch (err) {
+        console.error('Microphone error on perturbation answer:', err);
+        alert(`Microphone access error: ${err.message}`);
+    }
+}
+
+function stopInlineVoiceAnswer(episodeId, questionId) {
+    if (inlineTimerInterval) clearInterval(inlineTimerInterval);
+    if (inlineMediaRecorder && inlineMediaRecorder.state === 'recording') {
+        inlineMediaRecorder.stop();
+    }
+}
+
+async function uploadPerturbationVoiceAnswer(blob, mimeType, episodeId, questionId) {
+    const ext = mimeType.includes('ogg') ? '.ogg' : mimeType.includes('wav') ? '.wav' : '.webm';
+    const formData = new FormData();
+    formData.append('audio', blob, `answer_${Date.now()}${ext}`);
+
+    try {
+        const res = await fetch(`/api/episodes/${episodeId}/perturbations/${questionId}/answer`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'HX-Request': 'true'
+            }
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+            throw new Error(err.error || 'Server rejected voice answer');
+        }
+
+        const html = await res.text();
+        const container = document.getElementById(`analysis-container-${episodeId}`);
+        if (container) {
+            container.outerHTML = html;
+            if (window.htmx) {
+                htmx.process(document.getElementById(`analysis-container-${episodeId}`) || document.body);
+            }
+        }
+    } catch (err) {
+        console.error('Voice answer save error:', err);
+        alert(`Failed to save voice answer: ${err.message}`);
+    }
+}
+
+function toggleInlineTextAnswer(episodeId, questionId) {
+    const form = document.getElementById(`inline-text-form-${episodeId}-${questionId}`);
+    const actions = document.getElementById(`actions-${episodeId}-${questionId}`);
+    if (form) {
+        const isHidden = form.style.display === 'none';
+        form.style.display = isHidden ? 'block' : 'none';
+        if (actions) actions.style.display = isHidden ? 'none' : 'flex';
+        if (isHidden) {
+            const textarea = form.querySelector('textarea');
+            if (textarea) textarea.focus();
+        }
+    }
+}
+

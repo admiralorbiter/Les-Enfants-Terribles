@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from flask import Flask
 from let.config import Config, get_config
@@ -39,13 +38,11 @@ def create_app(config: Config | None = None, start_worker: bool = True) -> Flask
     app.extensions["let_repo"] = repo
     app.extensions["let_store"] = file_store
 
-    # Start background worker if enabled and not in testing / reloader parent
+    # Start background worker thread if enabled
     if start_worker and config.enable_background_worker:
-        # In debug mode, only start worker in the child process
-        if not config.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-            worker_runner = BackgroundWorkerRunner(config, repo, file_store)
-            worker_runner.start()
-            app.extensions["let_worker_runner"] = worker_runner
+        worker_runner = BackgroundWorkerRunner(config, repo, file_store)
+        worker_runner.start()
+        app.extensions["let_worker_runner"] = worker_runner
 
     app.register_blueprint(main_bp)
 

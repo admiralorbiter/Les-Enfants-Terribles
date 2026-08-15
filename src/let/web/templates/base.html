@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Les Enfants Terribles{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <script src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=v3">
+    <script src="{{ url_for('static', filename='js/htmx.min.js') }}?v=clean_v1"></script>
 </head>
 <body>
     <div class="container">
@@ -24,7 +24,7 @@
         </main>
     </div>
 
-    <script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/recorder.js') }}?v=hotreload_v3"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
