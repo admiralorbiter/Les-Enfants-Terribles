@@ -2,16 +2,17 @@
 title: "Les Enfants Terribles — Compiled Planning Packet"
 project: "Les Enfants Terribles"
 project_code: "LET"
-status: "planning_baseline"
-version: "0.1"
+status: "non_authoritative_export"
+version: "0.1-historical"
 owner: "Jonathan Lane"
 created: "2026-08-13"
-last_reviewed: "2026-08-13"
+last_reviewed: "2026-08-15"
 ---
 
 # Les Enfants Terribles — Compiled Planning Packet
 
-> This file compiles the project planning dossier. Individual source files remain the maintainable version.
+> [!NOTE]
+> This compiled export preserves the initial planning dossier. Canonical, active documentation is maintained in individual files under `docs/`, `README.md`, and `AGENTS.md`.
 
 
 ---

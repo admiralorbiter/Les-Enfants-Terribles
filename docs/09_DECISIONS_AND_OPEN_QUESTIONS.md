@@ -233,6 +233,70 @@ last_reviewed: "2026-08-13"
 
 **Rationale:** Eliminates the blank-canvas vocabulary freeze, protects against retrospective hindsight bias by locking predictions prior to practice/play, and teaches domain vocabulary at the exact moment of visceral experience.
 
+---
+
+### LET-D-025 — Prediction History Is Append-Only
+
+**Decision:** A pre-session prediction may be corrected only by appending a superseding record (`supersedes_prediction_id`). The original statement and audio/transcript lineage remain permanently recoverable.
+
+**Rationale:** Prevents post-hoc hindsight bias from mutating early self-models while allowing intentional corrections.
+
+---
+
+### LET-D-026 — Thread Is the Longitudinal Organizing Unit
+
+**Decision:** Maintain Episodes as bounded events and introduce **Threads** as persistent objects of attention, skill, or inquiry that connect multiple Episodes across time.
+
+**Rationale:** Enables longitudinal trajectory analysis, resonance drift tracking, and cross-session comparisons without forcing every episode into a rigid category.
+
+---
+
+### LET-D-027 — Protocol and Mode Are Orthogonal
+
+**Decision:** Keep cognitive procedure (**Protocol**) distinct from Liquid's conversational stance (**Mode**).
+
+**Rationale:** Prevents mode bloat and allows any Liquid stance (e.g. *Challenge*, *Explore*) to operate inside any Protocol (e.g. *Free Capture*, *Concept Lens*, *Blind Echo*).
+
+---
+
+### LET-D-028 — Vocabulary Exposure Is an Intervention
+
+**Decision:** Explicitly log all concept chip displays, lens presentations, and glossary views as **ConceptExposure** events.
+
+**Rationale:** Showing domain vocabulary primes attention and alters categorization; logging exposure prevents misclassifying primed concepts as spontaneous noticing.
+
+---
+
+### LET-D-029 — Concept Knowledge Requires Provenance
+
+**Decision:** Treat hard-coded or LLM-generated domain glossaries as proposed hypotheses until backed by primary source citations and validated with user examples.
+
+**Rationale:** Protects the cognitive archive from unverified folk theories or hallucinated jargon.
+
+---
+
+### LET-D-030 — Blind Reflection Is a First-Class Condition
+
+**Decision:** Build trustworthy information barriers into Protocol execution so that prior episodes, past reflections, and expert concepts remain strictly hidden during Blind steps until the user's unprompted recall is frozen.
+
+**Rationale:** Essential for measuring memory drift, resonance drift, and authentic calibration.
+
+---
+
+### LET-D-031 — Development Breadth Is Not Experimental Concurrency
+
+**Decision:** Allow unconstrained engineering velocity for backlog features, dormant protocols, concept schemas, and fixtures, while strictly capping simultaneous active field manipulations at approximately three.
+
+**Rationale:** Enables fast prototyping without compromising the causal interpretability of real-world cognitive changes.
+
+---
+
+### LET-D-032 — Retrospective Reconstruction Is Epistemically Distinct
+
+**Decision:** Explicitly record `source_mode: retrospective_reconstruction` and approximate `estimated_occurred_at` timestamps when capturing memories of past events.
+
+**Rationale:** Preserves past memories as valuable current cognitive artifacts without falsely representing them as contemporaneous evidence.
+
 ## 2. Open questions
 
 ### LET-Q-001 — Data root and backup [RESOLVED by LET-D-020 & LET-D-021]
@@ -242,6 +306,26 @@ Resolved: Dedicated local folder `~/.let_data` (overridable via `LET_DATA_DIR`) 
 ### LET-Q-019 — Follow-up Modality & Multi-turn Thread Pulling in the Bridge [RESOLVED by LET-D-022 & LET-D-023]
 
 Resolved: Implemented inline micro-recording and text notes attached to individual perturbation items with explicit artifact lineage, accompanied by 1-tap metacognitive utility ratings and instant offline heuristic probes.
+
+### LET-Q-020 — Thread UX Friction & Creation Timing
+
+Should Thread creation and association happen at capture time, or should capture remain unthreaded by default with post-capture suggestions or manual linking?
+
+### LET-Q-021 — Protocol Authoring Format
+
+Should reusable Protocols be authored as YAML files in a `protocols/` directory, pure Python registry classes, or database records?
+
+### LET-Q-022 — Concept Curation Pipeline
+
+What is the lowest-friction workflow for ingesting primary sources (music pedagogy, game theory, film criticism) into structured `Concept` and `ConceptSource` records?
+
+### LET-Q-023 — Blind / Lens UI Presentation & Information Barriers
+
+How should the UI communicate that prior notes are intentionally hidden (Blind condition) without making the interface feel restrictive or confusing?
+
+### LET-Q-024 — Research Pull Integration
+
+Should Research Pull operate via the manual Mission Brief bridge first, or should local/scripted scrapers generate candidate briefs?
 
 ### LET-Q-002 — Exact transcription configuration
 

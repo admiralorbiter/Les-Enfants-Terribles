@@ -2,11 +2,11 @@
 title: "Project Charter"
 project: "Les Enfants Terribles"
 project_code: "LET"
-status: "planning_baseline"
-version: "0.1"
+status: "active_research_instrument"
+version: "0.2"
 owner: "Jonathan Lane"
 created: "2026-08-13"
-last_reviewed: "2026-08-13"
+last_reviewed: "2026-08-15"
 ---
 
 
@@ -19,20 +19,20 @@ last_reviewed: "2026-08-13"
 
 Les Enfants Terribles is a personal research instrument and cognitive environment for learning how artificial systems can complement one person across work, learning, creativity, leisure, skilled practice, and reflection.
 
-The project will preserve high-value episodes, create carefully chosen metacognitive interventions, build inspectable longitudinal models, and test whether those models produce useful novelty without eroding joy or autonomy.
+The project preserves high-value episodes, creates carefully chosen metacognitive interventions, organizes persistent lines of inquiry across time (**Threads**), provides configurable thinking procedures (**Protocols**), builds inspectable longitudinal models, and tests whether those models produce useful novelty without eroding joy or autonomy.
 
 ## 2. Core research question
 
-> Can an AI learn when and how to augment this particular human’s cognition?
+> **Can LET create a durable longitudinal environment in which a person can preserve experience, acquire better representations for what they notice, compare themselves across time, encounter carefully chosen cognitive perturbations, and learn when artificial support deepens cognition versus when it should remain silent?**
 
 This decomposes into several questions:
 
 1. What evidence about a human is worth capturing?
-2. What cognitive mode is the human currently in?
-3. What support—if any—is appropriate in that mode?
+2. What cognitive mode or thinking procedure (**Protocol**) is currently appropriate?
+3. What conceptual frames (**Lenses**) help train noticing vs when do they prime or contaminate recall?
 4. Which interventions improve understanding, learning, calibration, or experience?
 5. Which interventions create fatigue, self-consciousness, dependence, or loss of joy?
-6. Can a model improve longitudinally without turning its prior interpretation into identity or fate?
+6. Can a model improve longitudinally across persistent **Threads** without turning its prior interpretation into identity or fate?
 7. Can the system remain useful when models, providers, and interfaces change?
 
 ## 3. Working thesis

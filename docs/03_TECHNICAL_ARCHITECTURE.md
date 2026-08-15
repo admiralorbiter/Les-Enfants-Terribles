@@ -2,11 +2,11 @@
 title: "Technical Architecture"
 project: "Les Enfants Terribles"
 project_code: "LET"
-status: "planning_baseline"
-version: "0.1"
+status: "active_research_instrument"
+version: "0.2"
 owner: "Jonathan Lane"
 created: "2026-08-13"
-last_reviewed: "2026-08-13"
+last_reviewed: "2026-08-15"
 ---
 
 
@@ -26,7 +26,7 @@ The architecture should remain useful even if:
 
 ## 2. Current stack decision
 
-### Locked for the first field period
+### Locked for the current baseline
 
 - **Platform:** Windows desktop.
 - **Application:** local browser application.
@@ -38,18 +38,17 @@ The architecture should remain useful even if:
 - **Raw media:** filesystem, outside Git.
 - **Derived media/text:** filesystem plus SQLite metadata.
 - **Processing:** asynchronous local worker.
-- **Speech-to-text:** replaceable transcriber interface; local `faster-whisper` is the provisional default.
+- **Speech-to-text:** replaceable transcriber interface; local `faster-whisper` (`small.en` default with CPU fallback).
 - **Media normalization:** FFmpeg or PyAV behind a small adapter.
 - **Version control:** Git for code, schemas, prompts, fixtures, and planning—not raw media.
 - **Recurring external API cost:** zero by default.
 
-### Provisional
+### Longitudinal Layer (Proposed & Staged)
 
-- SQLAlchemy 2 for persistence.
-- Pydantic or JSON Schema for processor and event contracts.
-- A database-backed job queue rather than Redis/Celery.
-- A CLI entry point such as `let`.
-- Localhost-only networking for the first field period.
+- **Threads & Protocol Engine:** Lightweight SQLite metadata tables + configuration-driven YAML/Python protocol specs.
+- **Concept Library:** Source-backed YAML/SQLite dictionary with domain scoping and aliases.
+- **Append-only Predictions:** Immutable snapshots with explicit audio/transcript lineage.
+- **Temporal Semantics:** Extended `source_mode` and precision fields for retrospective captures.
 
 ### Deferred
 
@@ -66,41 +65,49 @@ The architecture should remain useful even if:
 ## 3. High-level system
 
 ```text
-BROWSER / IMPORT / SENSOR
-          │
-          ▼
-    CAPTURE SERVICE
-          │
-          ├── save raw artifact atomically
-          ├── compute hash
-          ├── create event
-          └── attach/create episode
-          │
-          ▼
-      LOCAL STORE
-   files + SQLite metadata
-          │
-          ▼
-      JOB QUEUE
-          │
-    ┌─────┼─────────────┐
-    ▼     ▼             ▼
-normalize transcribe  processors
-    │     │             │
-    └─────┼─────────────┘
-          ▼
-   DERIVED ARTIFACTS
-          │
-          ▼
-      REPLAY ENGINE
-          │
-    ┌─────┼───────────────┐
-    ▼     ▼               ▼
-  local manual bridge  future API
-  model  subscription   provider
-          │
-          ▼
-      DEBRIEF / FEEDBACK
+BROWSER CAPTURE / UPLOAD / SENSORS
+               │
+               ▼
+     CAPTURE SERVICE (GENE)
+               │
+               ├── save raw media atomically (audio / clips)
+               ├── compute SHA-256 hashes
+               ├── record append-only predictions & audio lineage
+               └── commit episode + raw artifact bundle transaction
+               │
+               ▼
+     LOCAL STORAGE & DATABASE
+        files + SQLite metadata
+               │
+               ▼
+     ASYNCHRONOUS JOB QUEUE
+               │
+      ┌────────┼─────────────────┐
+      ▼        ▼                 ▼
+  normalize transcribe   future processors
+      │        │                 │
+      └────────┼─────────────────┘
+               ▼
+     LONGITUDINAL SEMANTIC LAYER
+               │
+      ┌────────┼────────────────────────┐
+      ▼        ▼                        ▼
+   THREADS  PROTOCOLS (Runs)     CONCEPT LIBRARY (Lenses)
+(Persistent) (Blind/Lens/Recall)  (Source-backed definitions)
+      │        │                        │
+      └────────┼────────────────────────┘
+               ▼
+     DERIVED REPLAY & BRIDGES
+               │
+      ┌────────┼─────────────────┐
+      ▼        ▼                 ▼
+   local    Mission Brief   future local
+ heuristics   AI bridge     model engines
+      │        │                 │
+      └────────┼─────────────────┘
+               ▼
+  LONGITUDINAL COMPARISONS & TWIN
+(Blind Echo · Drift · Solid State · Liquid)
 ```
 
 ## 4. Core components
@@ -273,6 +280,49 @@ Store:
 - joy effect;
 - follow-up action;
 - experiment condition.
+
+### Thread service *(Proposed — Workstream B)*
+
+Responsibilities:
+
+- create, update, and merge persistent **Threads**;
+- associate Episodes with Threads (`EpisodeThread` relationships);
+- maintain chronological thread timelines and cross-episode links;
+- unthreaded episodes remain valid (linking can be post-hoc or suggested).
+
+### Protocol engine & registry *(Proposed — Workstream C)*
+
+Responsibilities:
+
+- register thinking procedures (**Protocols**) via code or YAML specifications;
+- track execution instances (**ProtocolRun**);
+- enforce information barriers (e.g. hiding prior episodes/concepts during Blind steps);
+- log step transitions, skips, and partial completions without reflection debt.
+
+### Concept library service *(Proposed — Workstream D)*
+
+Responsibilities:
+
+- store source-backed concept entities with plain-language definitions and citations;
+- manage domain scoping and concept aliases;
+- log **ConceptExposure** events to distinguish unprompted noticing from priming;
+- support teach-back verification and user acceptance/rejection states.
+
+### Comparison service *(Proposed)*
+
+Responsibilities:
+
+- compute and store derived comparison artifacts across episodes;
+- support comparison types: `immediate_vs_delayed`, `prediction_vs_reflection`, `blind_vs_lens`, `pre_rewatch_vs_post_rewatch`;
+- preserve contradictions rather than flattening history into a single narrative.
+
+### Research Pull bridge *(Proposed)*
+
+Responsibilities:
+
+- package episode context, user terminology, and explicit unknowns;
+- generate Research Pull briefs for external literature investigation;
+- import candidate concepts with source citations and application hypotheses into LET.
 
 ## 5. Browser recording
 

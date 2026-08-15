@@ -2,23 +2,23 @@
 title: "Initial Two-Week Field Program"
 project: "Les Enfants Terribles"
 project_code: "LET"
-status: "planning_baseline"
-version: "0.1"
+status: "historical_baseline"
+version: "1.0-completed"
 owner: "Jonathan Lane"
 created: "2026-08-13"
-last_reviewed: "2026-08-13"
+last_reviewed: "2026-08-15"
 ---
 
 
 # Initial Two-Week Field Program
 
+> [!NOTE]
+> **Historical Baseline Notice:** This document records the original two-week field program and the foundation vertical slices (Slice 0 through Slice 2D) built to establish the capture substrate.
+> For the ongoing, active development roadmap, longitudinal architecture workstreams, and expanded experimental program, see [Integrated Development Roadmap](10_INTEGRATED_DEVELOPMENT_ROADMAP.md).
+
 ## 1. Nature of the period
 
-This is not a sprint to finish LET.
-
-It is a **field program** in which a minimum substrate is developed, used across ordinary life, and revised only when use reveals a reason.
-
-The period begins after repository creation and ends with an evidence review—not a feature-completion ceremony.
+This was the foundational field program in which a minimum substrate was developed, used across ordinary life, and verified through real captures.
 
 ## 2. Desired outcome
 

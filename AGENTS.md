@@ -32,7 +32,9 @@ Before substantive work, read:
 2. `docs/00_PROJECT_CHARTER.md`;
 3. `docs/03_TECHNICAL_ARCHITECTURE.md`;
 4. `docs/05_EXPERIMENT_PROGRAM_AND_GATES.md`;
-5. `docs/09_DECISIONS_AND_OPEN_QUESTIONS.md`.
+5. `docs/09_DECISIONS_AND_OPEN_QUESTIONS.md`;
+6. `docs/10_INTEGRATED_DEVELOPMENT_ROADMAP.md`;
+7. `docs/11_THREADS_PROTOCOLS_AND_LEARNING_ARCHITECTURE.md`.
 
 Then state:
 
@@ -41,8 +43,10 @@ Then state:
 - the evidence that would justify keeping it;
 - what is explicitly out of scope.
 
-## 3. Scope discipline
+## 3. Scope discipline & backlog freedom
 
+- **Development breadth is unconstrained:** Prototypes, dormant Protocols, concept schemas, fixtures, and branches can be developed as quickly as needed.
+- **Field experimental concurrency is constrained:** No more than approximately three **active field manipulations/interventions** should run simultaneously, preserving causal clarity about what improves thinking.
 - Implement one meaningful vertical slice at a time.
 - Do not add adjacent features merely because they are easy.
 - Do not convert a probe into a platform before the probe produces evidence.
@@ -61,6 +65,8 @@ When a task expands, stop and record the additional idea in the open-question or
 - A failed transcription, model call, or worker must never invalidate a successful capture.
 - Deletion and purge require an explicit user action and an impact report.
 - Raw media never belongs in Git.
+- Predictions append; they never overwrite. Revisions produce superseding records, preserving the original prediction freeze-point.
+- Spoken prediction audio is the raw source; Whisper transcription is a derived artifact and must not mutate the prediction's primary identity.
 
 ## 5. Epistemic separation
 
@@ -72,9 +78,12 @@ Keep these distinct:
 - what a model observed;
 - what a model inferred;
 - what Jonathan later accepted;
-- what an intervention may have caused.
+- what an intervention may have caused;
+- contemporaneous evidence versus retrospective reconstruction (`source_mode`).
 
 Model outputs are derived, revisable, and untrusted by default.
+
+Hard-coded, heuristic, or model-generated domain vocabulary begins as **proposed knowledge** until backed by primary source provenance and validated against Jonathan's actual usage.
 
 Do not write identity-level conclusions such as “Jonathan is…” from sparse episodes. Use bounded language:
 
@@ -82,9 +91,12 @@ Do not write identity-level conclusions such as “Jonathan is…” from sparse
 
 Every inference must carry evidence, time, scope, processor version, and uncertainty.
 
-## 6. Observation and intervention
+## 6. Observation, intervention, and information barriers
 
 An observation generated before Liquid acts must not be silently mixed with behavior produced after Liquid’s intervention.
+
+- **Lens exposure is an intervention:** Showing a domain concept or vocabulary chip before or during reflection primes attention and categorization. Every concept exposure must be recorded with its phase and presentation context.
+- **Blind state integrity:** In Blind Protocols (e.g., Blind Echo, Blind Practice), prior evidence, past reflections, and expert concept palettes must remain strictly hidden until the user's unprompted recall is frozen. Never leak hidden information.
 
 Log:
 
@@ -93,6 +105,7 @@ Log:
 - intervention candidates;
 - option selected;
 - whether no intervention was chosen;
+- concept/lens exposures;
 - user response;
 - subsequent evidence.
 
@@ -129,11 +142,15 @@ Never add:
 - a growing “reflection debt” badge;
 - automatic optimization of leisure.
 
+**Protocol abandonment is valid:** Jonathan may stop or abandon a Protocol at any step. A partially completed ProtocolRun is valid data, never a failed obligation.
+
 The system must be able to conclude:
 
 > “Nothing needs improvement here. Enjoy it.”
 
 ## 9. Development method
+
+**Implemented is not validated.** Passing unit and integration tests demonstrates technical correctness; it does not constitute experimental validation or proof of human-system cognitive value.
 
 For each feature:
 

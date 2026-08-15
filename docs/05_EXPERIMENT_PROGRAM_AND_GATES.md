@@ -2,11 +2,11 @@
 title: "Experiment Program and Decision Gates"
 project: "Les Enfants Terribles"
 project_code: "LET"
-status: "planning_baseline"
-version: "0.1"
+status: "active_research_instrument"
+version: "0.2"
 owner: "Jonathan Lane"
 created: "2026-08-13"
-last_reviewed: "2026-08-13"
+last_reviewed: "2026-08-15"
 ---
 
 
@@ -39,18 +39,25 @@ A technically accurate feature can still fail if it:
 - creates false certainty;
 - shifts work from creation to correction.
 
-## 3. Experiment lifecycle
+## 3. Development backlog freedom vs. experimental concurrency
+
+A crucial distinction governs LET's evolution:
+
+- **Development breadth is unconstrained:** The system may build, prototype, and scaffold dormant protocols, concept libraries, comparison tools, fixtures, and branches as quickly as engineering velocity allows.
+- **Field experimental concurrency is strictly constrained:** No more than approximately **three active field manipulations/interventions** should run simultaneously in Jonathan's daily use.
+
+This rule ensures that when changes in thinking, vocabulary, or recall occur, we can reliably attribute the cause to a specific intervention rather than confounding multiple overlapping probes.
+
+### Experiment lifecycle
 
 1. **Observe:** preserve a real friction, opportunity, or surprise.
 2. **Frame:** turn it into a question without assuming the answer.
 3. **Baseline:** identify the simplest current method.
-4. **Probe:** create the smallest discriminating intervention.
+4. **Probe:** create the smallest discriminating intervention or Protocol.
 5. **Use:** run it in real or faithfully simulated work.
 6. **Evaluate:** record outcome, burden, confounders, and surprise.
 7. **Decide:** keep, revise, defer, or remove.
 8. **Propagate:** update architecture and open questions.
-
-No more than three experiments should be active simultaneously.
 
 ## 4. Primary outcome concepts
 
@@ -263,6 +270,36 @@ Required evidence:
 Later:
 
 **Question:** Can Solid infer a bounded cognitive state from observable episode evidence without seeing Jonathan’s private ground-truth card?
+
+### E008 — Concept Lens Priming vs. Spontaneous Noticing
+
+**Question:** Does surfacing a specific domain concept (e.g. *rubato*, *centering*) before an experience improve discrimination and perceptual resolution, or does it narrow spontaneous noticing?
+
+**Probe:** Compare Concept Lens sessions with unprompted Free Capture sessions across the same Thread.
+
+### E009 — Blind Echo & Resonance Drift
+
+**Question:** How does unprompted memory of a film or concept change across 7, 30, and 90 days?
+
+**Probe:** Hide initial capture $\rightarrow$ record blind recall $\rightarrow$ reveal and generate comparison artifact.
+
+### E010 — Retrospective Memory vs. Contemporaneous Capture
+
+**Question:** How do retrospective reconstructions of older life events differ in detail and certainty from contemporaneous captures?
+
+**Probe:** Use `source_mode: retrospective_reconstruction` with approximate dates.
+
+### E011 — Research Pull Value vs. Manual AI Exploration
+
+**Question:** Does structured Research Pull (packaging context + question + candidate concept extraction) yield more actionable domain knowledge than ad-hoc search?
+
+### E012 — Teach-Back Verification vs. Passive Reading
+
+**Question:** Does requiring a 30-second teach-back note improve retention and appropriate transfer of a newly acquired domain concept?
+
+### E013 — Re-Experience Triad Comparison
+
+**Question:** What does comparing pre-prediction, original reaction, and post-rewatch reflection reveal about personal taste and perceptual stability?
 
 ## 7. Observation versus intervention periods
 

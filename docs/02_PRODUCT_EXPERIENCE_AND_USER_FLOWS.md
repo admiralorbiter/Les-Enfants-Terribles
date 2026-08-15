@@ -2,11 +2,11 @@
 title: "Product Experience and User Flows"
 project: "Les Enfants Terribles"
 project_code: "LET"
-status: "planning_baseline"
-version: "0.1"
+status: "active_research_instrument"
+version: "0.2"
 owner: "Jonathan Lane"
 created: "2026-08-13"
-last_reviewed: "2026-08-13"
+last_reviewed: "2026-08-15"
 ---
 
 
@@ -19,16 +19,16 @@ last_reviewed: "2026-08-13"
 
 LET should feel like an available cognitive instrument, not an obligation.
 
-The basic interaction should be:
+The basic interaction remains frictionless:
 
 ```text
 open → record → stop → raw saved
 ```
 
-Everything after that is optional:
+Everything after that is configurable and optional:
 
 ```text
-transcribe → debrief → challenge → answer → revisit → replay
+transcribe → select protocol / lens → debrief → challenge → answer → revisit → compare
 ```
 
 ## 2. Friction model
@@ -49,7 +49,7 @@ transcribe → debrief → challenge → answer → revisit → replay
 
 - specifying what was vague;
 - explaining mechanism;
-- comparing interpretations;
+- comparing interpretations across time;
 - predicting before feedback;
 - noticing uncertainty;
 - challenging assumptions;
@@ -58,7 +58,37 @@ transcribe → debrief → challenge → answer → revisit → replay
 
 For Jonathan, thinking is often the reward. Clerical setup is the friction.
 
-## 3. Cognitive support modes
+## 3. Orthogonal cognitive dimensions
+
+Avoid collapsing distinct cognitive concerns into a single mode. An encounter in LET combines:
+
+- **Domain:** What kind of activity is this? (*Movies, Piano, COD, Research, Programming, Life*)
+- **Thread:** What persistent line of inquiry does this belong to? (*The Shining, Chopin Nocturne, Re-challenging*)
+- **Protocol:** What thinking procedure are we running? (*Free Capture, Blind Echo, Concept Lens, Research Pull*)
+- **Mode:** How should Liquid behave? (*Explore, Challenge, Understand, Improve, Surprise, Decide, Capture*)
+- **Lens:** What domain concept is deliberately primed or analyzed? (*Centering, Rubato, Diegetic Sound*)
+
+### 3.1 Configurable thinking protocols
+
+| Protocol | Purpose | Key Procedure |
+|---|---|---|
+| **Free Capture** | Low-friction unprompted thought | Speak naturally $\rightarrow$ save raw $\rightarrow$ transcript $\rightarrow$ done. |
+| **Concept Lens** | Deliberately train attention/vocabulary | Select concept/lens $\rightarrow$ engage $\rightarrow$ reflect through that lens. |
+| **Blind Echo** | Measure unprompted recall & drift | Prior episode hidden $\rightarrow$ unprompted recall frozen $\rightarrow$ reveal & compare. |
+| **Calibration** | Test self-prediction against reality | Record pre-session prediction $\rightarrow$ session $\rightarrow$ compare prediction vs evidence. |
+| **Research Pull** | Investigate unknown mechanisms | Frame unknown $\rightarrow$ run external/local literature pull $\rightarrow$ candidate concepts. |
+| **Teach-Back** | Verify comprehension of candidate concept | System presents concept $\rightarrow$ user explains it in own words + provides example. |
+| **After-Action Review** | Structured post-performance debrief | What was supposed to happen $\rightarrow$ what happened $\rightarrow$ why $\rightarrow$ next action. |
+| **Reflection Ladder** | Deep multi-step progressive inquiry | Immediate impression $\rightarrow$ structural analysis $\rightarrow$ emotional/value synthesis. |
+
+### 3.2 Blind vs. Lens UX distinction
+
+- **Blind Protocol UX:** When measuring natural noticing, memory drift, or unprompted calibration, LET strictly hides previous episodes, past notes, and expert concept palettes. The user records freely, freezing their unprompted account before any reveal.
+- **Lens Protocol UX:** When training perceptual acuity or adopting new vocabulary, LET surfaces the concept definition and examples *before* the session or reflection begins.
+
+Neither is superior; both are first-class, and the UI makes the distinction transparent without information leaks.
+
+## 4. Cognitive support modes
 
 At capture or debrief, Jonathan may choose:
 
@@ -72,7 +102,7 @@ At capture or debrief, Jonathan may choose:
 | **Surprise me** | High-variance but evidence-aware provocation |
 | **You decide** | Liquid selects a stance and explains why |
 
-The initial system should let Jonathan choose explicitly. Later Solid may predict the likely mode, but explicit choice remains available.
+The initial system lets Jonathan choose explicitly. Later Solid may recommend the likely mode, but explicit choice remains available.
 
 ## 4. Timing model
 
@@ -392,3 +422,35 @@ A valid debrief may conclude:
 - the interesting pattern concerns joy rather than skill.
 
 The system should help Jonathan understand flourishing, not only output.
+
+## 14. Longitudinal revisit & retrospective flows
+
+### 14.1 Blind Echo & Resonance Drift
+
+```text
+Thread: "The Shining"
+├── Episode 1 (Day 0): Immediate voice reaction (Free Capture)
+└── Episode 2 (Day 30): Blind Echo
+    ├── Old Episode 1 transcript strictly hidden
+    ├── Spontaneous recall recorded: "What lingers? What scenes do I remember?"
+    ├── Recall frozen
+    ├── Episode 1 revealed
+    └── Comparison artifact generated: What faded? What crystallized? What shifted in salience?
+```
+
+### 14.2 Rewatch / re-experience triads
+
+```text
+1. Pre-rewatch prediction / expectation (Append-only prediction record)
+2. Rewatch experience
+3. Post-rewatch reflection (Concept Lens or Free Capture)
+4. Triad Compare: Prediction vs. Immediate Impression vs. Retrospective Memory
+```
+
+### 14.3 Retrospective memory capture
+
+Capturing memories of past events from years ago:
+- Distinct `source_mode = "retrospective_reconstruction"`
+- Approximate timestamp `estimated_occurred_at` (e.g. `1998`, precision `year`)
+- Contemporaneous recording timestamp `recorded_at`
+- Never fakes timestamp precision; preserves memory as a current cognitive artifact about the past.
