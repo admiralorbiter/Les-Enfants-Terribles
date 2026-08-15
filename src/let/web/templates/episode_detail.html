@@ -25,6 +25,30 @@
 <!-- Active Audio Player, Transcript & Mission Brief / Analysis -->
 <section style="margin-bottom: 2rem;">
     <h2 class="section-title" style="margin-bottom: 1rem;">Primary Audio &amp; Reflection Core</h2>
+
+    {% if episode.prediction %}
+    {% set pred = episode.prediction %}
+    <div class="prediction-box" style="margin-bottom: 1.25rem; padding: 1rem; background: var(--bg-surface-raised); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: var(--radius-md);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
+            <strong style="color: #f59e0b; font-size: 0.9rem;">
+                ⚡ Pre-Session Prediction Snapshot
+                {% if pred.target_concept %}<span class="tag" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; margin-left: 0.5rem;">{{ pred.target_concept }}</span>{% endif %}
+            </strong>
+            <span class="tag" style="font-size: 0.75rem;">Confidence: {{ pred.confidence|upper }}</span>
+        </div>
+        <p style="font-size: 0.95rem; margin: 0.3rem 0; color: var(--text-primary);">
+            "{{ pred.prediction_text }}"
+        </p>
+        {% if pred.prediction_artifact_id %}
+        <div style="margin: 0.4rem 0;">
+            <audio controls preload="none" src="/media/{{ pred.prediction_artifact_id }}" style="height: 32px; width: 100%; max-width: 320px;"></audio>
+        </div>
+        {% endif %}
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;">
+            Recorded at {{ pred.created_at[:19].replace('T', ' ') }} UTC (Locked before session)
+        </div>
+    </div>
+    {% endif %}
     
     {% for art in artifacts %}
         {% if art.artifact_type == 'audio' %}

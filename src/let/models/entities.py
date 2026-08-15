@@ -27,6 +27,24 @@ ArtifactType = Literal["audio", "video", "transcript", "analysis", "mission_brie
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 
 
+class PredictionData(BaseModel):
+    """An immutable pre-session prediction snapshot to compare against later evidence."""
+
+    id: str
+    target_concept: Optional[str] = None  # e.g., "Tempo / Rushing", "Centering / Aim"
+    prediction_text: str = ""
+    prediction_artifact_id: Optional[str] = None  # Raw audio artifact for voice predictions
+    confidence: Literal["low", "medium", "high"] = "medium"
+    created_at: str = Field(default_factory=utc_now_iso)
+
+
+class DomainConcept(BaseModel):
+    """A domain-specific concept term with a concise explanation."""
+
+    term: str
+    definition: str
+
+
 class Episode(BaseModel):
     """An episode is the primary organizing unit for cognitive reflections."""
 
@@ -35,8 +53,25 @@ class Episode(BaseModel):
     domain: DomainType = "general"
     mode: ModeType = "capture"
     status: str = "active"
+    prediction_json: Optional[str] = None
     created_at: str = Field(default_factory=utc_now_iso)
     updated_at: str = Field(default_factory=utc_now_iso)
+
+    @property
+    def prediction(self) -> Optional[PredictionData]:
+        """Deserialize prediction_json if present."""
+        if self.prediction_json:
+            try:
+                import json
+                data = json.loads(self.prediction_json)
+                return PredictionData(**data)
+            except Exception:
+                return None
+        return None
+
+    def set_prediction(self, pred: PredictionData) -> None:
+        """Serialize and set prediction data."""
+        self.prediction_json = pred.model_dump_json()
 
 
 class Artifact(BaseModel):
@@ -61,7 +96,7 @@ class Event(BaseModel):
 
     id: str
     episode_id: str
-    event_type: str  # "capture_saved", "mark", "transcription_started", "analysis_imported", "perturbation_answered", "perturbation_rated", etc.
+    event_type: str  # "capture_saved", "mark", "transcription_started", "analysis_imported", "perturbation_answered", "perturbation_rated", "self_prediction_recorded", etc.
     payload_json: str = "{}"
     created_at: str = Field(default_factory=utc_now_iso)
 
@@ -122,6 +157,8 @@ class AnalysisData(BaseModel):
     synthesis_text: str = ""
     perturbations: list[str] = Field(default_factory=list)
     items: list[PerturbationItem] = Field(default_factory=list)
+    prediction_discrepancy: Optional[str] = None
+    domain_concepts: list[DomainConcept] = Field(default_factory=list)
     provider: str = "manual"
     raw_response: str = ""
     created_at: str = Field(default_factory=utc_now_iso)
@@ -134,3 +171,4 @@ class AnalysisData(BaseModel):
         for i, q in enumerate(self.perturbations):
             items.append(PerturbationItem(id=f"pert_{i+1}", question_text=q))
         return items
+

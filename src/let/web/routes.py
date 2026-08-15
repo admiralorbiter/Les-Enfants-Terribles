@@ -17,7 +17,12 @@ from flask import (
     send_file,
 )
 from let.liquid.brief_generator import generate_mission_brief
-from let.liquid.heuristics import create_local_heuristic_analysis
+from let.liquid.heuristics import (
+    DOMAIN_CONCEPT_GLOSSARY,
+    DOMAIN_CONCEPT_PALETTES,
+    create_local_heuristic_analysis,
+    get_domain_concepts,
+)
 from let.liquid.response_parser import import_analysis_response
 from let.models.entities import (
     AnalysisData,
@@ -25,6 +30,7 @@ from let.models.entities import (
     Episode,
     Event,
     Job,
+    PredictionData,
     TranscriptData,
     utc_now_iso,
 )
@@ -113,6 +119,8 @@ def index():
         "index.html",
         episodes_with_data=episodes_with_data,
         current_domain=domain_filter or "",
+        concept_palettes=DOMAIN_CONCEPT_PALETTES,
+        concept_glossary=DOMAIN_CONCEPT_GLOSSARY,
     )
 
 
@@ -153,6 +161,8 @@ def episode_detail(episode_id: str):
         analysis_art=latest_analysis_art,
         analysis_data=analysis_data,
         latest_job=latest_job,
+        concept_palettes=DOMAIN_CONCEPT_PALETTES,
+        concept_glossary=DOMAIN_CONCEPT_GLOSSARY,
     )
 
 
@@ -612,6 +622,7 @@ def capture_audio():
     # 1. Determine episode
     is_new_episode = False
     episode = None
+    pred_art = None
     if episode_id:
         episode = repo.get_episode(episode_id)
         if not episode:
@@ -628,6 +639,43 @@ def capture_audio():
             domain=domain,
             mode=mode,
         )
+
+        prediction_text = request.form.get("prediction_text", "").strip()
+        prediction_concept = request.form.get("prediction_concept", "").strip()
+        prediction_confidence = request.form.get("prediction_confidence", "medium").strip().lower()
+        if prediction_confidence not in ("low", "medium", "high"):
+            prediction_confidence = "medium"
+
+        pred_art_id = None
+        if "prediction_audio" in request.files:
+            pred_file = request.files["prediction_audio"]
+            if pred_file and pred_file.filename:
+                pred_stored = file_store.save_raw_audio(
+                    data=pred_file.stream,
+                    original_filename=pred_file.filename,
+                    episode_id=episode_id,
+                )
+                pred_art_id = f"art_pred_{uuid.uuid4().hex[:10]}"
+                pred_art = Artifact(
+                    id=pred_art_id,
+                    episode_id=episode_id,
+                    artifact_type="audio",
+                    is_raw=True,
+                    file_path=pred_stored.relative_path,
+                    file_hash=pred_stored.file_hash,
+                    mime_type=pred_file.content_type or "audio/webm",
+                    size_bytes=pred_stored.size_bytes,
+                )
+
+        if prediction_text or pred_art_id:
+            pred = PredictionData(
+                id=f"pred_{uuid.uuid4().hex[:8]}",
+                target_concept=prediction_concept if prediction_concept else None,
+                prediction_text=prediction_text or "(Spoken Voice Prediction)",
+                prediction_artifact_id=pred_art_id,
+                confidence=prediction_confidence,
+            )
+            episode.set_prediction(pred)
 
     # 2. Atomically save raw audio to immutable store FIRST
     stored = file_store.save_raw_audio(
@@ -680,6 +728,8 @@ def capture_audio():
             episode=episode if is_new_episode else None,
             job=job,
         )
+        if pred_art:
+            repo.create_artifact(pred_art)
     except Exception as exc:
         file_store.write_capture_receipt(
             relative_file_path=stored.relative_path,
@@ -804,3 +854,85 @@ def add_mark_event(episode_id: str):
     repo.create_event(event)
 
     return jsonify({"status": "success", "event": event.model_dump()}), 201
+
+
+@bp.route("/api/episodes/<episode_id>/set_prediction", methods=["POST"])
+def set_episode_prediction(episode_id: str):
+    """Set or update an immutable pre-session prediction before practice/play begins."""
+    repo = _get_repo()
+    episode = repo.get_episode(episode_id)
+    if not episode:
+        return jsonify({"error": f"Episode {episode_id} not found"}), 404
+
+    artifacts = repo.list_artifacts_for_episode(episode_id)
+    raw_audio = [a for a in artifacts if a.is_raw and a.artifact_type == "audio"]
+    if episode.prediction and raw_audio:
+        return jsonify({"error": "Pre-session prediction is locked after primary capture"}), 400
+
+    if request.is_json:
+        data = request.get_json() or {}
+    else:
+        data = request.form
+
+    prediction_text = data.get("prediction_text", "").strip()
+    target_concept = data.get("target_concept", "").strip()
+    confidence = data.get("confidence", "medium").strip().lower()
+    if confidence not in ("low", "medium", "high"):
+        confidence = "medium"
+
+    pred_audio_file = request.files.get("prediction_audio") or request.files.get("audio")
+    pred_art_id = None
+    if pred_audio_file and pred_audio_file.filename:
+        file_store = _get_store()
+        pred_stored = file_store.save_raw_audio(
+            data=pred_audio_file.stream,
+            original_filename=pred_audio_file.filename,
+            episode_id=episode_id,
+        )
+        pred_art_id = f"art_pred_{uuid.uuid4().hex[:10]}"
+        pred_art = Artifact(
+            id=pred_art_id,
+            episode_id=episode_id,
+            artifact_type="audio",
+            is_raw=True,
+            file_path=pred_stored.relative_path,
+            file_hash=pred_stored.file_hash,
+            mime_type=pred_audio_file.content_type or "audio/webm",
+            size_bytes=pred_stored.size_bytes,
+        )
+        repo.create_artifact(pred_art)
+
+    if not prediction_text and not pred_art_id:
+        return jsonify({"error": "Prediction text or voice note is required"}), 400
+
+    pred = PredictionData(
+        id=f"pred_{uuid.uuid4().hex[:8]}",
+        target_concept=target_concept if target_concept else None,
+        prediction_text=prediction_text or "(Spoken Voice Prediction)",
+        prediction_artifact_id=pred_art_id,
+        confidence=confidence,
+    )
+    episode.set_prediction(pred)
+    repo.update_episode(episode)
+
+    repo.create_event(
+        Event(
+            id=f"evt_{uuid.uuid4().hex[:12]}",
+            episode_id=episode_id,
+            event_type="self_prediction_recorded",
+            payload_json=pred.model_dump_json(),
+        )
+    )
+
+    if request.headers.get("HX-Request"):
+        latest_analysis_art = repo.get_latest_analysis_for_episode(episode_id)
+        analysis_data = _load_analysis_data(latest_analysis_art) if latest_analysis_art else None
+        return render_template(
+            "partials/analysis_view.html",
+            episode=episode,
+            analysis_art=latest_analysis_art,
+            analysis_data=analysis_data,
+        )
+
+    return jsonify({"status": "success", "prediction": pred.model_dump()})
+

@@ -21,8 +21,8 @@ class Repository:
         with self.db.transaction() as conn:
             conn.execute(
                 """
-                INSERT INTO episodes (id, title, domain, mode, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO episodes (id, title, domain, mode, status, prediction_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     episode.id,
@@ -30,6 +30,7 @@ class Repository:
                     episode.domain,
                     episode.mode,
                     episode.status,
+                    episode.prediction_json,
                     episode.created_at,
                     episode.updated_at,
                 ),
@@ -74,7 +75,7 @@ class Repository:
             conn.execute(
                 """
                 UPDATE episodes
-                SET title = ?, domain = ?, mode = ?, status = ?, updated_at = ?
+                SET title = ?, domain = ?, mode = ?, status = ?, prediction_json = ?, updated_at = ?
                 WHERE id = ?
                 """,
                 (
@@ -82,6 +83,7 @@ class Repository:
                     episode.domain,
                     episode.mode,
                     episode.status,
+                    episode.prediction_json,
                     episode.updated_at,
                     episode.id,
                 ),
@@ -252,8 +254,8 @@ class Repository:
             if episode is not None:
                 conn.execute(
                     """
-                    INSERT INTO episodes (id, title, domain, mode, status, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO episodes (id, title, domain, mode, status, prediction_json, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         episode.id,
@@ -261,6 +263,7 @@ class Repository:
                         episode.domain,
                         episode.mode,
                         episode.status,
+                        episode.prediction_json,
                         episode.created_at,
                         episode.updated_at,
                     ),

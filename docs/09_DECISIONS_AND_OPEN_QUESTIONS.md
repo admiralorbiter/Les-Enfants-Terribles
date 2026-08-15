@@ -225,6 +225,14 @@ last_reviewed: "2026-08-13"
 
 **Rationale:** Provides the empirical calibration signal needed to evaluate Gate G2 (Productive Liquid) while strictly obeying Rule 8 (anti-guilt mechanics).
 
+---
+
+### LET-D-024 — Pre-Session Prediction & Domain Vocabulary Scaffolding (Slice 2D / E003)
+
+**Decision:** Implement immutable pre-session prediction snapshots (`PredictionData`), 1-tap starter domain concept chips (`DOMAIN_CONCEPT_PALETTES`), and hoverable plain-English domain definitions (`DOMAIN_CONCEPT_GLOSSARY`). Embed prediction context in Mission Brief prompts and trigger local calibration discrepancy probes.
+
+**Rationale:** Eliminates the blank-canvas vocabulary freeze, protects against retrospective hindsight bias by locking predictions prior to practice/play, and teaches domain vocabulary at the exact moment of visceral experience.
+
 ## 2. Open questions
 
 ### LET-Q-001 — Data root and backup [RESOLVED by LET-D-020 & LET-D-021]

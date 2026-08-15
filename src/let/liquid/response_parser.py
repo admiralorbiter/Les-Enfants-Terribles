@@ -113,6 +113,22 @@ def import_analysis_response(
         if provider == "manual" and existing_analysis.provider:
             analysis_data.provider = existing_analysis.provider
 
+    episode = repo.get_episode(episode_id)
+    if episode:
+        if not analysis_data.domain_concepts:
+            from let.liquid.heuristics import get_domain_concepts
+            from let.models.entities import DomainConcept
+            raw_concepts = get_domain_concepts(episode.domain)
+            analysis_data.domain_concepts = [
+                DomainConcept(term=c["term"], definition=c["definition"]) for c in raw_concepts
+            ]
+        if episode.prediction and not analysis_data.prediction_discrepancy:
+            pred = episode.prediction
+            analysis_data.prediction_discrepancy = (
+                f"Pre-Session Prediction: \"{pred.prediction_text}\" "
+                f"[{pred.target_concept or 'General'}, {pred.confidence.upper()} Confidence]"
+            )
+
     json_bytes = analysis_data.model_dump_json(indent=2).encode("utf-8")
     analysis_hash = FileStore.compute_hash_bytes(json_bytes)
 

@@ -190,39 +190,245 @@ DOMAIN_HEURISTIC_PROBES: dict[str, dict[str, list[str]]] = {
 }
 
 
+DOMAIN_CONCEPT_PALETTES: dict[str, list[str]] = {
+    "piano": [
+        "⏱️ Tempo / Rushing",
+        "🦾 Tension / Posture",
+        "🧠 Memory / Fingering",
+        "🖐️ Finger Articulation",
+        "🎨 Dynamics / Voicing",
+        "🦶 Damper Pedal",
+    ],
+    "cod": [
+        "🎯 Centering / Aim",
+        "🏃 Sprinting / Pacing",
+        "🗺️ Rotation Timing",
+        "🧘 Patience / Tilt",
+        "🛡️ Cover / Anchor",
+        "⚔️ Ego-Challenging",
+    ],
+    "programming": [
+        "🔒 State Invariants",
+        "⚡ Concurrency / Race",
+        "🧩 Layer Boundary",
+        "🧪 Edge Cases",
+        "🛠️ Ergonomics / Friction",
+    ],
+    "research": [
+        "🔬 Falsification Test",
+        "📐 Underlying Mechanism",
+        "🔍 Causal Direction",
+        "🧱 Hidden Axiom",
+        "💡 Adjacent Metaphor",
+    ],
+    "movie": [
+        "🎬 Visual Composition",
+        "🤫 Tone & Silence",
+        "🎭 Character Choice",
+        "🎼 Acoustic Pacing",
+        "🏛️ Thematic Premise",
+    ],
+    "general": [
+        "🎯 Core Decision",
+        "⚡ Point of Friction",
+        "🧭 Tacit Assumption",
+        "🔁 Recurring Pattern",
+        "✨ Surprising Insight",
+    ],
+}
+
+DOMAIN_CONCEPT_GLOSSARY: dict[str, dict[str, str]] = {
+    "piano": {
+        "Damper Pedal Bleed": "Holding the sustain pedal through harmonic chord shifts, creating muddy resonance.",
+        "Finger Legato": "Connecting melody notes smoothly with finger independence rather than masking gaps with pedal.",
+        "Arm-Weight Drop": "Using natural arm gravity to generate deep tone without forearm or wrist strain.",
+        "Rubato": "Expressive rhythmic elasticity that speeds up or slows down without losing the underlying pulse.",
+        "Thumb-Under Rotation": "Pivoting the wrist and forearm smoothly to tuck the thumb during scale or arpeggio runs.",
+    },
+    "cod": {
+        "Centering": "Keeping crosshairs at head/chest height where enemies will appear to minimize aiming adjustment.",
+        "Ego-Challenging": "Re-peeking or contesting a gunfight while at low health or positional disadvantage.",
+        "Anchor Positioning": "Holding a strategic perimeter point to control where your team respawns on objective rotations.",
+        "Pre-Aim Window": "Aiming down sights at a corner before clearing it to win the sprint-to-fire timing battle.",
+        "Spawn Rotation": "Anticipating the next objective location and establishing early map control before spawns flip.",
+    },
+    "programming": {
+        "State Invariant": "A condition that must always hold true for a system to remain valid under all transitions.",
+        "Productive Friction": "Cognitive resistance that deepens reflection, learning, or comprehension without clerical burden.",
+        "Idempotency": "An operation that produces the exact same outcome whether executed once or repeatedly.",
+        "Lineage Provenance": "Cryptographic and structural tracking showing precisely which source artifact generated a derived output.",
+    },
+    "research": {
+        "Falsification Threshold": "The specific empirical evidence that would decisively disprove your working hypothesis.",
+        "Epistemic Separation": "Maintaining strict distinction between raw observations, transcripts, inferences, and interventions.",
+        "Causal Mechanism": "The step-by-step physical or logical process that produces the observed correlation.",
+    },
+    "movie": {
+        "Formalist Framing": "Analyzing a scene primarily by its visual geometry, color palette, and editing rhythm.",
+        "Diegetic Sound": "Acoustic elements that originate from within the film's fictional world rather than the external score.",
+        "Resonance Drift": "How your emotional interpretation of a film evolves in the days following the initial viewing.",
+    },
+    "general": {
+        "Metacognitive Calibration": "The accuracy of comparing your pre-action prediction against objective post-action evidence.",
+        "Operational Friction": "Clerical, configuration, or interface hassle that distracts from productive thought.",
+    },
+}
+
+
+def get_domain_concepts(domain: str) -> list[dict[str, str]]:
+    """Retrieve structured domain glossary concepts for tooltips and vocabulary discovery."""
+    glossary = DOMAIN_CONCEPT_GLOSSARY.get(domain, DOMAIN_CONCEPT_GLOSSARY["general"])
+    return [{"term": term, "definition": desc} for term, desc in glossary.items()]
+
+
 def generate_local_perturbations(episode: Episode, transcript_text: Optional[str] = None) -> list[PerturbationItem]:
-    """Generate deterministic domain/mode tuned cognitive questions without external API dependency."""
-    domain_map = DOMAIN_HEURISTIC_PROBES.get(episode.domain, DOMAIN_HEURISTIC_PROBES["general"])
-    mode_questions = domain_map.get(episode.mode, domain_map.get("capture", []))
-
-    if not mode_questions:
-        mode_questions = [
-            f"What was the most surprising realization during this {episode.domain} reflection?",
-            f"What specific action or experiment will you test next?",
-        ]
-
+    """Generate intelligent domain-tuned cognitive questions using transcript cues and prediction discrepancies."""
     items: list[PerturbationItem] = []
-    for i, q in enumerate(mode_questions[:2]):
-        items.append(
-            PerturbationItem(
-                id=f"pert_loc_{uuid.uuid4().hex[:8]}",
-                question_text=q,
+    text_lower = (transcript_text or "").lower()
+
+    # 1. Transcript-Aware Piano Probes
+    if episode.domain == "piano" and text_lower:
+        if any(w in text_lower for w in ["shift", "jump", "leap", "interval", "keys", "reach", "wide", "distance", "c or d", "first c", "second", "third", "movement"]):
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="You noted friction during keyboard shifts across multi-key transitions. Did the hand make the jump using anticipatory eye movements (looking at target key first), or did the arm trajectory rely on blind muscle memory?"
+                )
             )
-        )
-    return items
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="During these lateral hand movements, was the inaccuracy driven by horizontal forearm displacement or missing tactile anchor points on surrounding black keys?"
+                )
+            )
+        elif any(w in text_lower for w in ["tempo", "rush", "fast", "slow", "timing", "rhythm", "beat", "speed", "pulse"]):
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="When the rhythm compressed, was the rushing caused by physical finger tension in the leading hand or by cognitive anticipation of upcoming chord transitions?"
+                )
+            )
+        elif any(w in text_lower for w in ["tension", "tight", "wrist", "arm", "stiff", "lock", "forearm", "pain", "strain"]):
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="Where in the movement sequence did physical tension accumulate, and did you release arm weight completely to the bottom of the keybed?"
+                )
+            )
+        elif any(w in text_lower for w in ["pedal", "blur", "muddy", "bleed", "clean", "sustain"]):
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="Was the sustain pedal cleared simultaneously with the key strike, or did harmonic resonance bleed across into the next bar?"
+                )
+            )
+
+    # 2. Transcript-Aware COD Probes
+    elif episode.domain == "cod" and text_lower:
+        if any(w in text_lower for w in ["aim", "center", "crosshair", "recoil", "shoot", "corner", "gunfight", "kd"]):
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="In those corner engagements, was your crosshair centered at target head-height before turning, or did you have to micro-adjust after sprint-out delay?"
+                )
+            )
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="When taking those gunfights, did you hold right-shoulder peeker advantage around cover or contest in open space?"
+                )
+            )
+        elif any(w in text_lower for w in ["rotate", "spawn", "time", "hill", "point", "hardpoint", "anchor", "back"]):
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="Did you rotate early to anchor favorable spawn control for your team, or did you overstay the contested zone and get collapsed on?"
+                )
+            )
+        elif any(w in text_lower for w in ["challenge", "peek", "ego", "repeek", "push", "died", "dead"]):
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="When you re-peeked that angle, did you have full health and positional advantage, or was it an ego-challenge while tagged?"
+                )
+            )
+
+    # 3. Transcript-Aware Programming Probes
+    elif episode.domain == "programming" and text_lower:
+        if any(w in text_lower for w in ["state", "invariant", "race", "async", "lock", "transaction", "lease", "concurrency", "sqlite"]):
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="What implicit state invariant was violated during this transition, and could the data structure or type system enforce it structurally?"
+                )
+            )
+        elif any(w in text_lower for w in ["error", "bug", "crash", "edge case", "null", "none", "fail", "broken"]):
+            items.append(
+                PerturbationItem(
+                    id=f"pert_cue_{uuid.uuid4().hex[:8]}",
+                    question_text="What assumption about boundary conditions proved false, and is there a simpler architecture that eliminates this edge case entirely?"
+                )
+            )
+
+    # 4. Calibration Prediction Probes (Only if prediction has genuine text, never placeholder!)
+    if episode.prediction:
+        pred = episode.prediction
+        pred_text = pred.prediction_text.strip() if pred.prediction_text else ""
+        has_real_prediction = bool(pred_text and pred_text != "(Spoken Voice Prediction)")
+        
+        if has_real_prediction:
+            concept = pred.target_concept or episode.domain.capitalize()
+            confidence = pred.confidence
+            q_cal = (
+                f"You predicted '{pred_text}' ({confidence.capitalize()} confidence on {concept}). "
+                f"Did the actual outcome confirm this expectation, or did friction emerge elsewhere?"
+            )
+            items.insert(0, PerturbationItem(id=f"pert_cal_{uuid.uuid4().hex[:8]}", question_text=q_cal))
+
+    # If fewer than 2 items generated, fill with domain/mode heuristics
+    if len(items) < 2:
+        domain_map = DOMAIN_HEURISTIC_PROBES.get(episode.domain, DOMAIN_HEURISTIC_PROBES["general"])
+        mode_questions = domain_map.get(episode.mode, domain_map.get("capture", []))
+        for q in mode_questions:
+            if len(items) >= 2:
+                break
+            if not any(it.question_text == q for it in items):
+                items.append(PerturbationItem(id=f"pert_loc_{uuid.uuid4().hex[:8]}", question_text=q))
+
+    return items[:2]
 
 
 def create_local_heuristic_analysis(episode: Episode, transcript_text: Optional[str] = None) -> AnalysisData:
-    """Construct an instant offline AnalysisData packet populated with local heuristic probes."""
+    """Construct an instant offline AnalysisData packet populated with local heuristic probes and vocabulary concepts."""
     items = generate_local_perturbations(episode, transcript_text)
-    synthesis = (
-        f"Spontaneous {episode.domain.upper()} observation captured in {episode.mode.upper()} mode. "
-        "Local heuristic cognitive probes generated offline."
-    )
+    concepts_raw = get_domain_concepts(episode.domain)
+    from let.models.entities import DomainConcept
+    domain_concepts = [DomainConcept(term=c["term"], definition=c["definition"]) for c in concepts_raw]
+
+    discrepancy_summary = None
+    if episode.prediction:
+        pred = episode.prediction
+        discrepancy_summary = (
+            f"Pre-Session Prediction: \"{pred.prediction_text}\" "
+            f"[{pred.target_concept or 'General'}, {pred.confidence.upper()} Confidence]"
+        )
+        synthesis = (
+            f"Calibration debrief for {episode.domain.upper()} in {episode.mode.upper()} mode. "
+            f"Pre-prediction compared against lived session evidence."
+        )
+    else:
+        synthesis = (
+            f"Spontaneous {episode.domain.upper()} observation captured in {episode.mode.upper()} mode. "
+            "Local heuristic cognitive probes generated offline."
+        )
+
     return AnalysisData(
         synthesis_text=synthesis,
         perturbations=[item.question_text for item in items],
         items=items,
+        prediction_discrepancy=discrepancy_summary,
+        domain_concepts=domain_concepts,
         provider="Local Heuristic Engine",
         raw_response="",
     )
+

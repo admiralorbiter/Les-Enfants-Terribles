@@ -77,6 +77,22 @@ def handle_transcribe_audio(
     )
     repo.create_artifact(transcript_artifact)
 
+    # Auto-transcribe prediction voice note if attached to episode
+    if job.episode_id:
+        episode = repo.get_episode(job.episode_id)
+        if episode and episode.prediction and episode.prediction.prediction_artifact_id:
+            pred_art = repo.get_artifact(episode.prediction.prediction_artifact_id)
+            if pred_art and (not episode.prediction.prediction_text or episode.prediction.prediction_text == "(Spoken Voice Prediction)"):
+                pred_path = file_store.to_absolute_path(pred_art.file_path)
+                if pred_path.exists():
+                    try:
+                        pred_result = transcriber.transcribe(pred_path)
+                        if pred_result.text and pred_result.text.strip():
+                            episode.prediction.prediction_text = pred_result.text.strip()
+                            repo.update_episode(episode)
+                    except Exception:
+                        pass
+
     # Log completion event
     if job.episode_id:
         repo.create_event(

@@ -15,6 +15,9 @@
             <div class="episode-meta">
                 <span class="tag domain-{{ ep.domain }}">{{ ep.domain }}</span>
                 <span class="tag">{{ ep.mode }}</span>
+                {% if ep.prediction %}
+                <span class="tag" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;" title="Pre-session prediction: {{ ep.prediction.prediction_text }}">⚡ {{ ep.prediction.target_concept or 'Calibration' }}</span>
+                {% endif %}
                 <span class="episode-timestamp">{{ ep.created_at[:16].replace('T', ' ') }} UTC</span>
             </div>
         </div>

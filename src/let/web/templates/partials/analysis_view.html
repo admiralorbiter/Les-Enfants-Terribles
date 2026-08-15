@@ -1,5 +1,25 @@
 <div id="analysis-container-{{ episode.id }}" class="analysis-wrapper">
     {% if analysis_data %}
+        <!-- Metacognitive Calibration & Discrepancy Snapshot -->
+        {% if episode.prediction %}
+        {% set pred = episode.prediction %}
+        <div class="discrepancy-card" style="margin-bottom: 0.85rem; padding: 0.75rem 1rem; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <span style="color: #f59e0b; font-weight: 600; font-size: 0.85rem;">⚡ Calibration Snapshot</span>
+                <span class="tag" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; font-size: 0.7rem;">{{ pred.confidence|upper }} CONFIDENCE</span>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-primary); line-height: 1.4;">
+                <strong>Pre-Session Prediction:</strong> "{{ pred.prediction_text }}"
+                {% if pred.target_concept %}<span style="color: var(--text-muted);">({{ pred.target_concept }})</span>{% endif %}
+            </div>
+            {% if pred.prediction_artifact_id %}
+            <div style="margin-top: 0.35rem;">
+                <audio controls preload="none" src="/media/{{ pred.prediction_artifact_id }}" style="height: 26px; width: 100%; max-width: 240px;"></audio>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Polished Synthesis Box -->
         {% if analysis_data.synthesis_text %}
         <div class="synthesis-card">
@@ -216,6 +236,22 @@
                 <button type="button" class="btn-micro btn-secondary" onclick="openImportModal('{{ episode.id }}')">
                     📥 Paste Follow-up Questions
                 </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Domain Vocabulary Concept Palette -->
+        {% if analysis_data.domain_concepts %}
+        <div class="domain-concepts-bar" style="margin-top: 0.75rem; padding: 0.5rem 0.75rem; background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.35rem;">
+                📚 <strong>{{ episode.domain|upper }} Concept Palette</strong> (Hover for mechanism):
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                {% for concept in analysis_data.domain_concepts %}
+                <span class="concept-vocab-tag" title="{{ concept.definition }}" style="cursor: help; font-size: 0.75rem; background: var(--bg-surface); border: 1px solid var(--border-subtle); padding: 0.15rem 0.5rem; border-radius: var(--radius-sm); color: var(--text-secondary);">
+                    📖 {{ concept.term }}
+                </span>
+                {% endfor %}
             </div>
         </div>
         {% endif %}

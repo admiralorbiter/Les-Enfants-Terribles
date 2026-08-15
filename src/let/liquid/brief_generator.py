@@ -54,6 +54,20 @@ def generate_mission_brief(
         else (f"{transcript.processor_name} ({transcript.processor_version})" if transcript else "local Whisper")
     )
 
+    prediction_section = ""
+    calibration_directive = ""
+    if episode.prediction:
+        pred = episode.prediction
+        voice_note_line = f"- **Prediction Voice Artifact:** `{pred.prediction_artifact_id}`\n" if pred.prediction_artifact_id else ""
+        prediction_section = f"""
+### Immutable Pre-Session Prediction Snapshot
+- **Target Concept:** `{pred.target_concept or 'General'}`
+- **Confidence:** `{pred.confidence.upper()}`
+- **Prediction Statement:** "{pred.prediction_text or '(Recorded as Spoken Voice Note)'}"
+{voice_note_line}*(Recorded at {pred.created_at[:19].replace('T', ' ')} UTC before session)*
+"""
+        calibration_directive = f"""- **Calibration & Discrepancy Directive:** Compare Jonathan's pre-session prediction ("{pred.prediction_text or 'Voice Prediction'}") with his post-session transcript. Highlight any divergence between what he expected and what actually happened, and supply exact domain vocabulary (e.g., motor, acoustic, tactical mechanics) to name the phenomenon."""
+
     brief = f"""# MISSION BRIEF — Les Enfants Terribles
 **Episode:** {episode.title}
 **ID:** `{episode.id}`
@@ -63,7 +77,7 @@ def generate_mission_brief(
 - **Source Audio Artifact:** `{audio_id}` (SHA-256: {audio_hash})
 - **Transcript Artifact:** `{transcript_id}` (SHA-256: {transcript_hash})
 - **Transcriber Engine:** {processor_info}
-
+{prediction_section}
 ---
 
 ## 1. Machine Transcript Derived from Raw Voice Capture
@@ -78,6 +92,7 @@ def generate_mission_brief(
 You are the personal cognitive reflection partner for Jonathan in the *Les Enfants Terribles* environment.
 - **Domain Guidance:** {domain_guidance}
 - **Mode Objective ({episode.mode}):** {mode_guidance}
+{calibration_directive}
 - **Strict Brevity & Perturbation Rule:** Provide strictly 1 or 2 penetrating cognitive questions. Do NOT provide a list of 5+ sub-questions, checklists, or rhetorical quizzes. One deep question outranks a barrage of weak ones.
 - **Epistemic Guardrail:** The transcript represents Jonathan's self-reported thoughts and observations. It is not direct evidence of piano mechanics, gameplay execution, or film cinematography unless those raw media artifacts are specifically provided. Distinguish what Jonathan reported from what an objective sensor would establish.
 - **Tone Rules:** Avoid generic cheerleading, sycophancy, filler introductions, and buzzwords. Be incisive, precise, and respectful of the original voice.

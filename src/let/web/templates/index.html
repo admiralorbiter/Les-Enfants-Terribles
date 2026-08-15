@@ -20,7 +20,7 @@
         </div>
         <div class="input-group">
             <label for="episode-domain">Domain</label>
-            <select id="episode-domain" class="form-select">
+            <select id="episode-domain" class="form-select" onchange="updateDomainChips(this.value)">
                 <option value="general" selected>General / Thought</option>
                 <option value="movie">Movie</option>
                 <option value="piano">Piano</option>
@@ -40,6 +40,82 @@
                 <option value="surprise">Surprise Me</option>
                 <option value="decide">Help Me Decide</option>
             </select>
+        </div>
+    </div>
+
+    <!-- Toggleable Pre-Session Prediction / Calibration Scaffolding -->
+    <div style="margin-top: 1rem; text-align: center;">
+        <button type="button" class="btn-prediction-toggle" id="toggle-prediction-btn" onclick="togglePredictionCard()">
+            <span>⚡</span>
+            <span id="toggle-prediction-label">Add Pre-Session Prediction (Calibration)</span>
+        </button>
+    </div>
+
+    <div id="prediction-card" class="prediction-box" style="display: none;">
+        <div class="prediction-header">
+            <div class="prediction-title">
+                <span>⚡</span> Pre-Session Prediction Snapshot
+                <span id="draft-indicator" style="display: none; font-size: 0.7rem; font-weight: 500; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.1rem 0.45rem; border-radius: 10px; margin-left: 0.4rem;">● Draft Saved</span>
+            </div>
+            <span class="prediction-badge-locked">Locked on Capture</span>
+        </div>
+        <p class="prediction-prompt">
+            What do you expect to break down, or what specific mechanism/rule are you testing?
+        </p>
+
+        <!-- 1-Tap Concept Chips -->
+        <div class="concept-chips-container" id="concept-chips-container">
+            {% set general_chips = concept_palettes.get('general', []) if concept_palettes else [] %}
+            {% for chip in general_chips %}
+            <button type="button" class="concept-chip" onclick="selectConceptChip('{{ chip }}')">{{ chip }}</button>
+            {% endfor %}
+        </div>
+
+        <input type="hidden" id="prediction-concept" value="">
+        <input type="hidden" id="prediction-confidence" value="medium">
+
+        <!-- Voice Prediction Controls with Custom Dark Audio Player -->
+        <div class="voice-pred-row">
+            <button type="button" class="btn-voice-pred" id="voice-pred-btn" onclick="toggleVoicePredictionRecording()">
+                <span id="voice-pred-icon">🎙️</span>
+                <span id="voice-pred-label">Speak Prediction</span>
+            </button>
+            <span id="voice-pred-timer" class="voice-recording-timer" style="display: none;">● 00:00</span>
+            
+            <div id="voice-pred-preview" class="custom-voice-preview" style="display: none;">
+                <button type="button" class="btn-play-voice" id="voice-pred-play-btn" onclick="toggleVoicePredictionPlay()" title="Play / Pause">
+                    <span id="voice-pred-play-icon">▶</span>
+                </button>
+                <div class="voice-waveform-track" onclick="seekVoicePrediction(event)">
+                    <div class="voice-waveform-progress" id="voice-pred-progress"></div>
+                </div>
+                <span class="voice-duration" id="voice-pred-duration">0:00</span>
+                <button type="button" class="btn-re-record" onclick="toggleVoicePredictionRecording()" title="Re-record audio">
+                    ↻ Re-record
+                </button>
+                <button type="button" class="btn-discard-voice" onclick="clearVoicePrediction()" title="Remove audio">
+                    ✕
+                </button>
+                <audio id="voice-pred-audio" style="display: none;"></audio>
+            </div>
+        </div>
+
+        <div class="pred-divider">
+            <span>or write hypothesis</span>
+        </div>
+
+        <div style="margin-bottom: 0.6rem;">
+            <input type="text" id="prediction-text" class="prediction-input" placeholder="e.g., I predict bar 32 transition will slip due to tempo rushing...">
+        </div>
+
+        <div class="prediction-footer">
+            <div class="confidence-group">
+                <span class="confidence-label">Confidence:</span>
+                <button type="button" class="confidence-pill" data-level="low" onclick="setConfidence('low')">Low</button>
+                <button type="button" class="confidence-pill active" data-level="medium" onclick="setConfidence('medium')">Med</button>
+                <button type="button" class="confidence-pill" data-level="high" onclick="setConfidence('high')">High</button>
+            </div>
+            <button type="button" class="btn-clear-prediction" onclick="clearPrediction()">Clear</button>
         </div>
     </div>
 </section>
@@ -70,4 +146,8 @@
         {% endif %}
     </div>
 </section>
+
+<script>
+window.DOMAIN_PALETTES = {{ concept_palettes|tojson|safe if concept_palettes else '{}' }};
+</script>
 {% endblock %}

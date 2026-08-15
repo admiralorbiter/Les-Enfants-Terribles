@@ -115,6 +115,23 @@ async function uploadRecording(blob, mimeType, episodeId = null) {
     }
     if (episodeId) {
         formData.append('episode_id', episodeId);
+    } else {
+        const predText = document.getElementById('prediction-text');
+        const predConcept = document.getElementById('prediction-concept');
+        const predConf = document.getElementById('prediction-confidence');
+        if (predText && predText.value.trim()) {
+            formData.append('prediction_text', predText.value.trim());
+        }
+        if (predConcept && predConcept.value.trim()) {
+            formData.append('prediction_concept', predConcept.value.trim());
+        }
+        if (predConf && predConf.value.trim()) {
+            formData.append('prediction_confidence', predConf.value.trim());
+        }
+        if (voicePredictionBlob) {
+            const predExt = voicePredictionBlob.type.includes('ogg') ? '.ogg' : voicePredictionBlob.type.includes('wav') ? '.wav' : '.webm';
+            formData.append('prediction_audio', voicePredictionBlob, `pred_${Date.now()}${predExt}`);
+        }
     }
 
     try {
@@ -161,6 +178,10 @@ async function uploadRecording(blob, mimeType, episodeId = null) {
             recoveryBanner.style.display = 'none';
         }
         lastFailedCapture = null;
+        clearPrediction();
+        if (typeof clearPredictionDraft === 'function') {
+            clearPredictionDraft();
+        }
 
         setTimeout(() => {
             statusText.textContent = 'Ready to capture';
@@ -507,4 +528,454 @@ function toggleInlineTextAnswer(episodeId, questionId) {
         }
     }
 }
+function togglePredictionCard() {
+    const card = document.getElementById('prediction-card');
+    const toggleBtn = document.getElementById('toggle-prediction-btn');
+    const toggleLabel = document.getElementById('toggle-prediction-label');
+    if (!card) return;
+    if (card.style.display === 'none' || !card.style.display) {
+        card.style.display = 'block';
+        if (toggleBtn) toggleBtn.classList.add('open');
+        if (toggleLabel) toggleLabel.textContent = 'Collapse Pre-Session Prediction';
+        const textInput = document.getElementById('prediction-text');
+        if (textInput) textInput.focus();
+    } else {
+        card.style.display = 'none';
+        if (toggleBtn) toggleBtn.classList.remove('open');
+        if (toggleLabel) toggleLabel.textContent = 'Add Pre-Session Prediction (Calibration)';
+    }
+}
+
+function selectConceptChip(chipText) {
+    const conceptInput = document.getElementById('prediction-concept');
+    const textInput = document.getElementById('prediction-text');
+    if (conceptInput) {
+        conceptInput.value = chipText;
+    }
+    // Highlight active chip
+    document.querySelectorAll('.concept-chip').forEach(el => {
+        if (el.textContent.trim() === chipText.trim()) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+    if (textInput && !textInput.value.trim()) {
+        textInput.focus();
+    }
+    savePredictionDraft();
+}
+
+function setConfidence(level) {
+    const confInput = document.getElementById('prediction-confidence');
+    if (confInput) confInput.value = level;
+    document.querySelectorAll('.confidence-pill').forEach(el => {
+        if (el.getAttribute('data-level') === level) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+    savePredictionDraft();
+}
+
+function clearPrediction() {
+    const textInput = document.getElementById('prediction-text');
+    const conceptInput = document.getElementById('prediction-concept');
+    if (textInput) textInput.value = '';
+    if (conceptInput) conceptInput.value = '';
+    document.querySelectorAll('.concept-chip').forEach(el => el.classList.remove('active'));
+    setConfidence('medium');
+    clearVoicePrediction();
+    clearPredictionDraft();
+}
+
+function updateDomainChips(domain) {
+    const container = document.getElementById('concept-chips-container');
+    if (!container || !window.DOMAIN_PALETTES) return;
+    const chips = window.DOMAIN_PALETTES[domain] || window.DOMAIN_PALETTES['general'] || [];
+    container.innerHTML = '';
+    
+    const conceptInput = document.getElementById('prediction-concept');
+    const currentConcept = conceptInput ? conceptInput.value.trim() : '';
+
+    chips.forEach(chip => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const isMatch = (chip.trim() === currentConcept);
+        btn.className = 'concept-chip' + (isMatch ? ' active' : '');
+        btn.textContent = chip;
+        btn.onclick = () => selectConceptChip(chip);
+        container.appendChild(btn);
+    });
+
+    savePredictionDraft();
+}
+
+let voicePredictionBlob = null;
+let voicePredRecorder = null;
+let voicePredChunks = [];
+let voicePredInterval = null;
+let voicePredStartTime = null;
+
+async function toggleVoicePredictionRecording() {
+    const btn = document.getElementById('voice-pred-btn');
+    const label = document.getElementById('voice-pred-label');
+    const icon = document.getElementById('voice-pred-icon');
+    const timer = document.getElementById('voice-pred-timer');
+    const preview = document.getElementById('voice-pred-preview');
+    const audioEl = document.getElementById('voice-pred-audio');
+    const durationEl = document.getElementById('voice-pred-duration');
+    const progressEl = document.getElementById('voice-pred-progress');
+    const playIcon = document.getElementById('voice-pred-play-icon');
+
+    if (!voicePredRecorder || voicePredRecorder.state === 'inactive') {
+        try {
+            voicePredChunks = [];
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mimeType = getSupportedMimeType();
+            const options = mimeType ? { mimeType } : {};
+            voicePredRecorder = new MediaRecorder(stream, options);
+
+            voicePredRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) voicePredChunks.push(e.data);
+            };
+
+            voicePredRecorder.onstop = () => {
+                const mime = voicePredRecorder.mimeType || 'audio/webm';
+                voicePredictionBlob = new Blob(voicePredChunks, { type: mime });
+                stream.getTracks().forEach(t => t.stop());
+                
+                if (audioEl) {
+                    audioEl.src = URL.createObjectURL(voicePredictionBlob);
+                    audioEl.onloadedmetadata = () => {
+                        if (durationEl && isFinite(audioEl.duration)) {
+                            durationEl.textContent = formatDuration(Math.round(audioEl.duration));
+                        }
+                    };
+                    audioEl.ontimeupdate = () => {
+                        if (audioEl.duration && progressEl) {
+                            const pct = (audioEl.currentTime / audioEl.duration) * 100;
+                            progressEl.style.width = `${pct}%`;
+                        }
+                    };
+                    audioEl.onended = () => {
+                        if (playIcon) playIcon.textContent = '▶';
+                        if (progressEl) progressEl.style.width = '0%';
+                    };
+                }
+                
+                if (preview) preview.style.display = 'inline-flex';
+                if (timer) timer.style.display = 'none';
+                if (label) label.textContent = 'Speak Prediction';
+                if (icon) icon.textContent = '🎙️';
+                if (btn) {
+                    btn.classList.remove('recording');
+                    btn.style.display = 'none';
+                }
+                savePredictionDraft();
+            };
+
+            voicePredRecorder.start(250);
+            voicePredStartTime = Date.now();
+            if (label) label.textContent = 'Finish Voice Prediction';
+            if (icon) icon.textContent = '■';
+            if (btn) btn.classList.add('recording');
+            if (timer) {
+                timer.textContent = '● 00:00';
+                timer.style.display = 'inline-flex';
+            }
+            if (preview) preview.style.display = 'none';
+
+            voicePredInterval = setInterval(() => {
+                const elapsedSec = Math.floor((Date.now() - voicePredStartTime) / 1000);
+                if (timer) timer.textContent = `● ${formatDuration(elapsedSec)}`;
+            }, 500);
+
+        } catch (err) {
+            console.error('Microphone access error for voice prediction:', err);
+            alert(`Unable to access microphone: ${err.message}`);
+        }
+    } else if (voicePredRecorder.state === 'recording') {
+        if (voicePredInterval) clearInterval(voicePredInterval);
+        voicePredRecorder.stop();
+    }
+}
+
+function toggleVoicePredictionPlay() {
+    const audioEl = document.getElementById('voice-pred-audio');
+    const playIcon = document.getElementById('voice-pred-play-icon');
+    if (!audioEl) return;
+
+    if (audioEl.paused) {
+        audioEl.play().then(() => {
+            if (playIcon) playIcon.textContent = '⏸';
+        }).catch(err => console.error('Audio play error:', err));
+    } else {
+        audioEl.pause();
+        if (playIcon) playIcon.textContent = '▶';
+    }
+}
+
+function seekVoicePrediction(e) {
+    const audioEl = document.getElementById('voice-pred-audio');
+    const track = e.currentTarget;
+    if (!audioEl || !track || !audioEl.duration) return;
+
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, clickX / rect.width));
+    audioEl.currentTime = pct * audioEl.duration;
+}
+
+function clearVoicePrediction() {
+    voicePredictionBlob = null;
+    const preview = document.getElementById('voice-pred-preview');
+    const audioEl = document.getElementById('voice-pred-audio');
+    const label = document.getElementById('voice-pred-label');
+    const icon = document.getElementById('voice-pred-icon');
+    const timer = document.getElementById('voice-pred-timer');
+    const btn = document.getElementById('voice-pred-btn');
+    const playIcon = document.getElementById('voice-pred-play-icon');
+    const progressEl = document.getElementById('voice-pred-progress');
+
+    if (audioEl) {
+        audioEl.pause();
+        audioEl.src = '';
+    }
+    if (playIcon) playIcon.textContent = '▶';
+    if (progressEl) progressEl.style.width = '0%';
+    if (preview) preview.style.display = 'none';
+    if (timer) timer.style.display = 'none';
+    if (label) label.textContent = 'Speak Prediction';
+    if (icon) icon.textContent = '🎙️';
+    if (btn) {
+        btn.classList.remove('recording');
+        btn.style.display = 'inline-flex';
+    }
+    savePredictionDraft();
+}
+
+// ==========================================================================
+// IndexedDB + LocalStorage Draft Persistence for Pre-Session Predictions
+// ==========================================================================
+
+const DRAFT_DB_NAME = 'LET_Drafts_DB';
+const DRAFT_STORE_NAME = 'prediction_drafts';
+const DRAFT_KEY = 'active_prediction_draft';
+const DRAFT_LS_KEY = 'let_prediction_draft_meta';
+
+function openDraftDB() {
+    return new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+            reject(new Error('IndexedDB not supported'));
+            return;
+        }
+        const req = indexedDB.open(DRAFT_DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(DRAFT_STORE_NAME)) {
+                db.createObjectStore(DRAFT_STORE_NAME);
+            }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function savePredictionDraft() {
+    const textInput = document.getElementById('prediction-text');
+    const conceptInput = document.getElementById('prediction-concept');
+    const confInput = document.getElementById('prediction-confidence');
+    const domainSelect = document.getElementById('episode-domain');
+    const draftIndicator = document.getElementById('draft-indicator');
+
+    const meta = {
+        text: textInput ? textInput.value : '',
+        concept: conceptInput ? conceptInput.value : '',
+        confidence: confInput ? confInput.value : 'medium',
+        domain: domainSelect ? domainSelect.value : 'general',
+        hasAudio: !!voicePredictionBlob,
+        updatedAt: Date.now()
+    };
+
+    if (!meta.text.trim() && !meta.concept && !voicePredictionBlob) {
+        await clearPredictionDraft();
+        return;
+    }
+
+    // 1. Synchronously save metadata to LocalStorage
+    try {
+        localStorage.setItem(DRAFT_LS_KEY, JSON.stringify(meta));
+    } catch (e) {}
+
+    // 2. Asynchronously save full draft including audio blob to IndexedDB
+    try {
+        const db = await openDraftDB();
+        const tx = db.transaction(DRAFT_STORE_NAME, 'readwrite');
+        const draft = { ...meta, audioBlob: voicePredictionBlob };
+        tx.objectStore(DRAFT_STORE_NAME).put(draft, DRAFT_KEY);
+    } catch (err) {
+        console.warn('Could not auto-save prediction draft to IndexedDB:', err);
+    }
+
+    if (draftIndicator) {
+        draftIndicator.textContent = '● Draft Saved';
+        draftIndicator.style.display = 'inline-block';
+        draftIndicator.style.color = '#10b981';
+        draftIndicator.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        draftIndicator.style.background = 'rgba(16, 185, 129, 0.12)';
+    }
+}
+
+async function loadPredictionDraft() {
+    // 1. Synchronously restore metadata from LocalStorage first for instant UI response
+    try {
+        const rawMeta = localStorage.getItem(DRAFT_LS_KEY);
+        if (rawMeta) {
+            const meta = JSON.parse(rawMeta);
+            applyDraftMetaToUI(meta);
+        }
+    } catch (e) {}
+
+    // 2. Load audio blob and authoritative draft from IndexedDB
+    try {
+        const db = await openDraftDB();
+        const tx = db.transaction(DRAFT_STORE_NAME, 'readonly');
+        const req = tx.objectStore(DRAFT_STORE_NAME).get(DRAFT_KEY);
+        req.onsuccess = () => {
+            const draft = req.result;
+            if (!draft) return;
+            applyDraftMetaToUI(draft);
+
+            if (draft.audioBlob) {
+                voicePredictionBlob = draft.audioBlob;
+                const audioEl = document.getElementById('voice-pred-audio');
+                const preview = document.getElementById('voice-pred-preview');
+                const btn = document.getElementById('voice-pred-btn');
+                const durationEl = document.getElementById('voice-pred-duration');
+
+                if (audioEl) {
+                    audioEl.src = URL.createObjectURL(draft.audioBlob);
+                    audioEl.onloadedmetadata = () => {
+                        if (durationEl && isFinite(audioEl.duration)) {
+                            durationEl.textContent = formatDuration(Math.round(audioEl.duration));
+                        }
+                    };
+                }
+                if (preview) preview.style.display = 'inline-flex';
+                if (btn) btn.style.display = 'none';
+            }
+        };
+    } catch (err) {
+        console.warn('Could not load prediction draft from IndexedDB:', err);
+    }
+}
+
+function applyDraftMetaToUI(draft) {
+    if (!draft) return;
+    if (!draft.text && !draft.concept && !draft.hasAudio && !draft.audioBlob) return;
+
+    const card = document.getElementById('prediction-card');
+    const toggleBtn = document.getElementById('toggle-prediction-btn');
+    const toggleLabel = document.getElementById('toggle-prediction-label');
+    const textInput = document.getElementById('prediction-text');
+    const domainSelect = document.getElementById('episode-domain');
+    const draftIndicator = document.getElementById('draft-indicator');
+
+    if (card) card.style.display = 'block';
+    if (toggleBtn) toggleBtn.classList.add('open');
+    if (toggleLabel) toggleLabel.textContent = 'Collapse Pre-Session Prediction';
+
+    if (draft.domain && domainSelect) {
+        domainSelect.value = draft.domain;
+        // Populate chips for domain without resetting text/audio
+        const container = document.getElementById('concept-chips-container');
+        if (container && window.DOMAIN_PALETTES) {
+            const chips = window.DOMAIN_PALETTES[draft.domain] || window.DOMAIN_PALETTES['general'] || [];
+            container.innerHTML = '';
+            chips.forEach(chip => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isMatch = (draft.concept && chip.trim() === draft.concept.trim());
+                btn.className = 'concept-chip' + (isMatch ? ' active' : '');
+                btn.textContent = chip;
+                btn.onclick = () => selectConceptChip(chip);
+                container.appendChild(btn);
+            });
+        }
+    }
+
+    if (draft.concept) {
+        const conceptInput = document.getElementById('prediction-concept');
+        if (conceptInput) conceptInput.value = draft.concept;
+        document.querySelectorAll('.concept-chip').forEach(el => {
+            if (el.textContent.trim() === draft.concept.trim()) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        });
+    }
+
+    if (draft.confidence) {
+        setConfidence(draft.confidence);
+    }
+    if (draft.text && textInput) {
+        textInput.value = draft.text;
+    }
+
+    if (draftIndicator) {
+        draftIndicator.textContent = '● Staged Draft Restored';
+        draftIndicator.style.display = 'inline-block';
+        draftIndicator.style.color = '#f59e0b';
+        draftIndicator.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+        draftIndicator.style.background = 'rgba(245, 158, 11, 0.12)';
+    }
+}
+
+async function clearPredictionDraft() {
+    try {
+        localStorage.removeItem(DRAFT_LS_KEY);
+    } catch (e) {}
+
+    try {
+        const db = await openDraftDB();
+        const tx = db.transaction(DRAFT_STORE_NAME, 'readwrite');
+        tx.objectStore(DRAFT_STORE_NAME).delete(DRAFT_KEY);
+    } catch (err) {
+        console.warn('Could not delete prediction draft from IndexedDB:', err);
+    }
+
+    const draftIndicator = document.getElementById('draft-indicator');
+    if (draftIndicator) draftIndicator.style.display = 'none';
+}
+
+// Initialize draft loading and auto-save input listeners on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPredictionDraftListeners);
+} else {
+    initPredictionDraftListeners();
+}
+
+function initPredictionDraftListeners() {
+    loadPredictionDraft();
+    const textInput = document.getElementById('prediction-text');
+    if (textInput) {
+        textInput.addEventListener('input', () => {
+            savePredictionDraft();
+        });
+    }
+    const domainSelect = document.getElementById('episode-domain');
+    if (domainSelect) {
+        domainSelect.addEventListener('change', () => {
+            savePredictionDraft();
+        });
+    }
+}
+
+
+
+
+
 

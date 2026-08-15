@@ -51,20 +51,26 @@ The implementation progresses through explicit vertical slices:
 - Interactive timestamp seeking in web UI (clicking `[00:03]` seeks audio);
 - Replay and CLI transcription triggers.
 
-### Slice 2A — Mission Brief Bridge & Polished Synthesis (Active)
+### Slice 2A — Mission Brief Bridge & Polished Synthesis (Completed)
 - 1-click **Mission Brief** Markdown export tailored by domain and declared mode;
 - Dual output protocol: (1) **Polished Synthesis / Review Note** and (2) **Liquid Perturbations**;
 - External model response import back into LET;
 - Derived analysis persistence with SHA-256 lineage tracking;
 - 1-click copy for clean synthesis and prominent Liquid question display.
 
-### Slice 2B — Flexible Follow-Up Dialogue (Planned)
+### Slice 2B — Flexible Follow-Up Dialogue (Completed)
 - Multi-modal response capture (voice recording and typed text notes attached directly to Liquid questions);
 - Multi-turn conversation trail (*Capture → Question → Answer → Follow-up*).
 
-### Slice 2C — Lightweight Calibration & Built-in Heuristics (Planned)
-- 1-tap feedback reactions (`Useful`, `Surprising`, `Already Knew`, `Intrusive`);
-- Deterministic/offline question primitives.
+### Slice 2C — Lightweight Calibration & Built-in Heuristics (Completed)
+- 1-tap feedback reactions (`⚡ Sharp`, `👀 Known`, `❌ Irrelevant`);
+- Deterministic/offline question primitives across 6 domains $\times$ 7 modes.
+
+### Slice 2D — Pre-Session Prediction & Domain Vocabulary Scaffolding (Completed)
+- Immutable pre-session prediction snapshot (`PredictionData`) locked before session capture to eliminate hindsight bias;
+- 1-tap domain concept starter chips (`DOMAIN_CONCEPT_PALETTES`) for instant priming without blank-canvas freeze;
+- Plain-English domain concept definitions & hoverable glossary (`DOMAIN_CONCEPT_GLOSSARY`);
+- Calibration discrepancy probes comparing pre-prediction vs. lived session evidence in Mission Brief and local heuristics.
 
 Not required:
 

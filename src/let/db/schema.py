@@ -91,13 +91,21 @@ def _migrate_v2(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_v3(conn: sqlite3.Connection) -> None:
+    """Migration 3: Add prediction_json column to episodes table."""
+    columns = [row[1] for row in conn.execute("PRAGMA table_info(episodes)").fetchall()]
+    if "prediction_json" not in columns:
+        conn.execute("ALTER TABLE episodes ADD COLUMN prediction_json TEXT;")
+
+
 # Ordered registry of migrations: (version, description, SQL string or callable)
 MIGRATIONS: List[Tuple[int, str, str | Callable[[sqlite3.Connection], None]]] = [
     (1, "Base schema (episodes, artifacts, events, jobs)", MIGRATION_V1_SQL),
     (2, "Add worker lease fields to jobs", _migrate_v2),
+    (3, "Add prediction_json to episodes", _migrate_v3),
 ]
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def initialize_and_migrate(conn: sqlite3.Connection) -> int:
